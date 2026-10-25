@@ -14,6 +14,9 @@ if ($PSEdition -eq 'Core' -and -not $IsWindows) {
 
 Import-Module -Name $dll -Scope Local -ErrorAction Stop
 
+# Desktop console (WPF). Loaded lazily inside the function so headless hosts pay nothing.
+. (Join-Path -Path $PSScriptRoot -ChildPath 'Gui\Show-PSWUConsole.ps1')
+
 # Aliases kept from the original PSWindowsUpdate module.
 New-Alias -Name Get-WUList -Value Get-WindowsUpdate
 New-Alias -Name Get-WUInstall -Value Get-WindowsUpdate
@@ -25,4 +28,4 @@ New-Alias -Name Show-WindowsUpdate -Value Get-WindowsUpdate
 New-Alias -Name Uninstall-WindowsUpdate -Value Remove-WindowsUpdate
 New-Alias -Name Clear-WUJob -Value Get-WUJob
 
-Export-ModuleMember -Cmdlet * -Alias *
+Export-ModuleMember -Cmdlet * -Alias * -Function Show-PSWUConsole

@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.1.0 (2026-10-25)
+
+### Added
+- `Show-PSWUConsole`: a WPF desktop console shipped in the module's `Gui` folder. Dark theme, custom title bar, navigation rail, and eight pages: Dashboard, Updates, History, Services, Settings, Catalog, Jobs, and Log. Operations run in a background runspace; verbose, warning, and error streams go to the Log page. Works in Windows PowerShell 5.1 and PowerShell 7. `-PassThru` returns the window without showing it.
+- `Get-WUOfflineMSU -UpdateID`: limit a Catalog search to specific entries so a chosen subset can be downloaded with `-AcceptAll` and no prompts.
+- Pester test that constructs the console window.
+
+### Changed
+- Module version 3.1.0; `Show-PSWUConsole` is exported alongside the cmdlets.
+
 ## 3.0.0 (2026-10-25)
 
 First release of PSWindowsUpdateNext, forked from PSWindowsUpdate 2.2.1.3.

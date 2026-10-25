@@ -125,6 +125,12 @@ public class GetWUOfflineMSU : PSCmdlet
 	[Parameter]
 	public SwitchParameter SkipSignatureCheck { get; set; }
 
+	/// <summary>
+	/// <para type="description">Only consider Catalog entries with these update IDs (the GUID shown as Identity). Combine with -AcceptAll to download a chosen subset without prompts.</para>
+	/// </summary>
+	[Parameter]
+	public string[] UpdateID { get; set; }
+
 	private static WUTools WUToolsObj { get; set; }
 
 	private static WUBits WUBitsObj { get; set; }
@@ -266,10 +272,16 @@ public class GetWUOfflineMSU : PSCmdlet
 			int num = 0;
 			ProgressRecord progressRecord = new ProgressRecord(1, "Choose updates for " + text, "[" + num + "/" + count + "]");
 			Collection<PSObject> collection = new Collection<PSObject>();
+			HashSet<string> wanted = UpdateID != null && UpdateID.Length > 0 ? new HashSet<string>(UpdateID, StringComparer.OrdinalIgnoreCase) : null;
 			foreach (Match row in rows)
 			{
 				string rowHtml = row.Groups["row"].Value;
 				string identity = row.Groups["id"].Value;
+				if (wanted != null && !wanted.Contains(identity))
+				{
+					num++;
+					continue;
+				}
 				Match titleMatch = TitleRegex.Match(rowHtml);
 				string title = titleMatch.Success ? Clean(titleMatch.Groups["v"].Value) : identity;
 				Match sizeMatch = SizeRegex.Match(rowHtml);

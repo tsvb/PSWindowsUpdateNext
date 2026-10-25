@@ -47,6 +47,30 @@ Describe 'PSWindowsUpdateNext module' {
     It 'does not export the hidden diagnostic cmdlets' {
         Get-Command -Name Get-WUTest, Get-WindowsUpdate_v2 -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
     }
+
+    It 'exports the Show-PSWUConsole function' {
+        (Get-Command Show-PSWUConsole -Module PSWindowsUpdateNext).CommandType | Should -Be 'Function'
+    }
+}
+
+Describe 'Desktop console' {
+    BeforeAll {
+        Import-Module $script:manifest -Force -ErrorAction Stop
+        $script:sta = [System.Threading.Thread]::CurrentThread.GetApartmentState() -eq 'STA'
+    }
+
+    It 'builds the window from its XAML and theme' -Skip:(-not $script:sta) {
+        $window = Show-PSWUConsole -PassThru
+        try {
+            $window | Should -BeOfType System.Windows.Window
+            $window.Title | Should -Be 'PSWindowsUpdateNext Console'
+            foreach ($name in 'NavDashboard', 'NavUpdates', 'NavHistory', 'NavServices', 'NavSettings', 'NavCatalog', 'NavJobs', 'NavLog', 'ListUpdates', 'BtnScan') {
+                $window.FindName($name) | Should -Not -BeNullOrEmpty -Because "$name is wired by the runtime"
+            }
+        } finally {
+            $window.Close()
+        }
+    }
 }
 
 Describe 'Windows Update Agent access' {

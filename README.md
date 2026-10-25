@@ -32,6 +32,33 @@ Security
 - The module no longer runs `Unblock-File` across its own folder on import.
 - Obsolete Code Access Security attributes and the `System.Web` dependency are gone.
 
+## Desktop console
+
+`Show-PSWUConsole` opens a native dark-themed window over the same cmdlets, for people who want a
+power-user front end rather than a prompt. It runs in Windows PowerShell 5.1 and PowerShell 7.
+
+![Dashboard](docs/console-dashboard.png)
+
+- Dashboard: reboot state, last search and install, agent version, default service, 30-day install stats, recent history, and the client policy at a glance.
+- Updates: scan the default service, Microsoft Update, or Windows Update; filter by text, hidden, installed, or reboot-required; select rows and download, install, hide, or unhide them; a detail panel shows description, severity, size, and the support article.
+- History: the agent's operation log with result badges, count selector, and text filter.
+- Services: registered service managers with Default and Managed badges, register Microsoft Update, remove a service.
+- Settings: live view of the Windows Update policy keys plus a form for NoAutoUpdate, AUOptions, scheduled install day and hour, feature-update pinning, and deferral periods.
+- Catalog: search catalog.update.microsoft.com by KB, pick packages, and download them with digest and Authenticode verification.
+- Jobs: list the module's Task Scheduler jobs and create new ones that run as SYSTEM now, at startup, or at a set time.
+- Log: every verbose, warning, and error line from the session, with copy and save.
+
+Every operation runs in a background runspace, so the window stays responsive, and destructive
+actions ask for confirmation first. If the session is not elevated the sidebar offers a one-click
+restart as administrator; read-only pages still work without it.
+
+```powershell
+Import-Module PSWindowsUpdateNext
+Show-PSWUConsole
+```
+
+![Services](docs/console-services.png)
+
 ## Install
 
 Until the module is published to the PowerShell Gallery, download the zip from the
@@ -73,6 +100,8 @@ Get-WUOfflineMSU -KBArticleID 5062553 -Destination C:\Updates
 # Pin feature updates to a release
 Set-WUSettings -TargetReleaseVersion -TargetReleaseVersionInfo 23H2 -ProductVersion "Windows 11"
 ```
+
+Function: Show-PSWUConsole (desktop console).
 
 Cmdlets: Add-WUServiceManager, Enable-WURemoting, Get-WindowsUpdate, Get-WUApiVersion, Get-WUHistory,
 Get-WUInstallerStatus, Get-WUJob, Get-WULastResults, Get-WUOfflineMSU, Get-WURebootStatus,

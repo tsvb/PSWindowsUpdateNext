@@ -1,7 +1,7 @@
 @{
     # The .psm1 picks the right build (net472 for Windows PowerShell, net8.0 for PowerShell 7).
     RootModule = 'PSWindowsUpdateNext.psm1'
-    ModuleVersion = '3.0.0'
+    ModuleVersion = '3.1.0'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID = '5f0c9b4e-8a6d-4e2b-9c1f-2d7a3e6b8c01'
     Author = 'tsvb'
@@ -11,7 +11,7 @@
     PowerShellVersion = '5.1'
     DotNetFrameworkVersion = '4.7.2'
     FormatsToProcess = @('PSWindowsUpdateNext.Format.ps1xml')
-    FunctionsToExport = @()
+    FunctionsToExport = @('Show-PSWUConsole')
     CmdletsToExport = @(
         'Add-WUServiceManager',
         'Enable-WURemoting',
@@ -51,7 +51,11 @@
         'PSWindowsUpdateNext.Format.ps1xml',
         'PSWindowsUpdateNext.dll-Help.xml',
         'net472\PSWindowsUpdateNext.dll',
-        'net8.0-windows\PSWindowsUpdateNext.dll'
+        'net8.0-windows\PSWindowsUpdateNext.dll',
+        'Gui\Show-PSWUConsole.ps1',
+        'Gui\MainWindow.xaml',
+        'Gui\Theme.xaml',
+        'Gui\Models.cs'
     )
     PrivateData = @{
         PSData = @{
