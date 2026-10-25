@@ -1307,7 +1307,9 @@ public class GetWindowsUpdate : PSCmdlet
 					if (!Download && !Install)
 					{
 						WriteDebug(DateTime.Now.ToString() + " Return update list only");
-						WriteObject(collection);
+						// Enumerate so each update is its own pipeline object; the host unwraps a bare
+						// collection at the prompt, but a pipeline or runspace consumer sees one blob.
+						WriteObject(collection, enumerateCollection: true);
 						OutputObj = new Collection<PSObject>(collection);
 						continue;
 					}

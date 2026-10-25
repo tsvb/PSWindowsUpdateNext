@@ -344,12 +344,25 @@ $p = @{ WarningAction = 'SilentlyContinue'; ErrorAction = 'Stop'; Verbose = $tru
 switch ($Source) { 'MicrosoftUpdate' { $p.MicrosoftUpdate = $true } 'WindowsUpdate' { $p.WindowsUpdate = $true } }
 if ($WithHidden) { $p.WithHidden = $true }
 if ($Installed) { $p.IsInstalled = $true }
-Get-WindowsUpdate @p | ForEach-Object {
-    [pscustomobject]@{
-        KB = "$($_.KB)"; Title = "$($_.Title)"; Size = "$($_.Size)"; SizeBytes = [decimal]$_.MaxDownloadSize; Status = "$($_.Status)"
-        UpdateID = "$($_.Identity.UpdateID)"; IsHidden = [bool]$_.IsHidden; IsDownloaded = [bool]$_.IsDownloaded; IsInstalled = [bool]$_.IsInstalled
-        RebootRequired = [bool]$_.RebootRequired; Category = (@($_.Categories | ForEach-Object Name) -join ', '); Severity = "$($_.MsrcSeverity)"
-        Description = "$($_.Description)"; MoreInfoUrl = "$(@($_.MoreInfoUrls)[0])"; Published = $(try { [datetime]$_.LastDeploymentChangeTime } catch { [datetime]::MinValue })
+function Get-Scalar($value) { if ($value -is [System.Collections.IEnumerable] -and $value -isnot [string]) { @($value)[0] } else { $value } }
+function Get-Num($value) { try { [decimal](Get-Scalar $value) } catch { 0 } }
+function Get-Bool($value) { try { [bool](Get-Scalar $value) } catch { $false } }
+# Get-WindowsUpdate can emit one collection object instead of one object per update; flatten it.
+$raw = @(Get-WindowsUpdate @p)
+$items = foreach ($o in $raw) { if ($o -is [System.Collections.ICollection] -and $o -isnot [string]) { foreach ($i in $o) { $i } } else { $o } }
+$items | ForEach-Object {
+    $u = $_
+    try {
+        $cats = try { @($u.Categories | ForEach-Object { "$($_.Name)" }) -join ', ' } catch { '' }
+        $more = try { "$(@($u.MoreInfoUrls)[0])" } catch { '' }
+        [pscustomobject]@{
+            KB = "$($u.KB)"; Title = "$($u.Title)"; Size = "$($u.Size)"; SizeBytes = (Get-Num $u.MaxDownloadSize); Status = "$($u.Status)"
+            UpdateID = "$($u.Identity.UpdateID)"; IsHidden = (Get-Bool $u.IsHidden); IsDownloaded = (Get-Bool $u.IsDownloaded); IsInstalled = (Get-Bool $u.IsInstalled)
+            RebootRequired = (Get-Bool $u.RebootRequired); Category = $cats; Severity = "$($u.MsrcSeverity)"
+            Description = "$($u.Description)"; MoreInfoUrl = $more; Published = $(try { [datetime](Get-Scalar $u.LastDeploymentChangeTime) } catch { [datetime]::MinValue })
+        }
+    } catch {
+        Write-Warning "Skipped one update ($($u.Title)): $($_.Exception.Message)"
     }
 }
 '@
@@ -365,7 +378,9 @@ switch ($Action) {
     'Hide'     { $p.Hide = $true }
     'Unhide'   { $p.IsHidden = $true; $p.Hide = $false }
 }
-Get-WindowsUpdate @p | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Title)"; Status = "$($_.Status)"; Result = "$($_.Result)" } }
+$raw = @(Get-WindowsUpdate @p)
+$items = foreach ($o in $raw) { if ($o -is [System.Collections.ICollection] -and $o -isnot [string]) { foreach ($i in $o) { $i } } else { $o } }
+$items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Title)"; Status = "$($_.Status)"; Result = "$($_.Result)" } }
 '@
 
     function Get-Source {

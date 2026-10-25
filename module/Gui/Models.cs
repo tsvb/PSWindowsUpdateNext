@@ -43,6 +43,7 @@ namespace PSWindowsUpdateNext.Gui
         public string MoreInfoUrl { get; set; }
         public DateTime Published { get; set; }
         public string PublishedText { get { return Published == DateTime.MinValue ? "" : Published.ToString("yyyy-MM-dd"); } }
+        public string KBVisibility { get { return string.IsNullOrWhiteSpace(KB) ? "Collapsed" : "Visible"; } }
         public string StateText
         {
             get

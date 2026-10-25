@@ -258,13 +258,17 @@
                         </StackPanel>
                     </Grid>
                     <Grid Grid.Row="1" Margin="0,14,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox x:Name="TxtUpdateFilter" Width="240" Margin="0,0,10,0" Tag="Filter by title or KB"/>
-                            <ToggleButton x:Name="ChipHidden" Style="{StaticResource Chip}" Content="Include hidden"/>
-                            <ToggleButton x:Name="ChipInstalled" Style="{StaticResource Chip}" Content="Installed"/>
-                            <ToggleButton x:Name="ChipRebootOnly" Style="{StaticResource Chip}" Content="Needs reboot"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <WrapPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,16,0">
+                            <TextBox x:Name="TxtUpdateFilter" Width="220" Margin="0,0,10,4" Tag="Filter by title or KB"/>
+                            <ToggleButton x:Name="ChipHidden" Style="{StaticResource Chip}" Content="Include hidden" Margin="0,0,6,4"/>
+                            <ToggleButton x:Name="ChipInstalled" Style="{StaticResource Chip}" Content="Installed" Margin="0,0,6,4"/>
+                            <ToggleButton x:Name="ChipRebootOnly" Style="{StaticResource Chip}" Content="Needs reboot" Margin="0,0,6,4"/>
+                        </WrapPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                             <CheckBox x:Name="SwAutoReboot" Style="{StaticResource Switch}" Content="Auto reboot" Margin="0,0,16,0"/>
                             <Button x:Name="BtnDownload" Style="{StaticResource Btn}" Content="Download" Margin="0,0,6,0"/>
                             <Button x:Name="BtnInstall" Style="{StaticResource BtnPrimary}" Content="Install selected" Margin="0,0,6,0"/>
@@ -321,7 +325,7 @@
                                                             <ColumnDefinition Width="100"/>
                                                         </Grid.ColumnDefinitions>
                                                         <CheckBox Style="{StaticResource Check}" IsChecked="{Binding Selected, Mode=TwoWay}"/>
-                                                        <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalAlignment="Left">
+                                                        <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalAlignment="Left" Visibility="{Binding KBVisibility}">
                                                             <TextBlock Text="{Binding KB}" Style="{StaticResource T.Mono}" FontSize="11"/>
                                                         </Border>
                                                         <StackPanel Grid.Column="2" Margin="6,0,12,0" VerticalAlignment="Center">
@@ -602,12 +606,21 @@
                         </StackPanel>
                     </Grid>
                     <Grid Grid.Row="1" Margin="0,14,0,10">
-                        <StackPanel Orientation="Horizontal">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="0" Margin="0,0,16,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*" MaxWidth="420"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
                             <TextBlock Style="{StaticResource T.Muted}" Text="Save to" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBox x:Name="TxtCatalogDest" Width="360" Margin="0,0,6,0"/>
-                            <Button x:Name="BtnCatalogBrowse" Style="{StaticResource Btn}" Content="Browse…"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBox x:Name="TxtCatalogDest" Grid.Column="1" Margin="0,0,6,0"/>
+                            <Button x:Name="BtnCatalogBrowse" Grid.Column="2" Style="{StaticResource Btn}" Content="Browse…"/>
+                        </Grid>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
                             <CheckBox x:Name="SwSkipSignature" Style="{StaticResource Switch}" Content="Keep unsigned files" Margin="0,0,16,0"/>
                             <Button x:Name="BtnCatalogDownload" Style="{StaticResource BtnPrimary}" Content="Download selected"/>
                         </StackPanel>
