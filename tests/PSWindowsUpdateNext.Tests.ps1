@@ -5,9 +5,14 @@
 #>
 
 BeforeDiscovery {
+    # Discovery-time values feed -ForEach; run-time blocks recompute the path (Pester 5 keeps the scopes apart).
+    $modulePath = if ($env:PSWU_MODULE_PATH) { $env:PSWU_MODULE_PATH } else { Join-Path $PSScriptRoot '..\out\PSWindowsUpdateNext' }
+    $expectedCmdlets = (Import-PowerShellDataFile (Join-Path $modulePath 'PSWindowsUpdateNext.psd1')).CmdletsToExport
+}
+
+BeforeAll {
     $script:modulePath = if ($env:PSWU_MODULE_PATH) { $env:PSWU_MODULE_PATH } else { Join-Path $PSScriptRoot '..\out\PSWindowsUpdateNext' }
     $script:manifest = Join-Path $script:modulePath 'PSWindowsUpdateNext.psd1'
-    $script:expectedCmdlets = (Import-PowerShellDataFile $script:manifest).CmdletsToExport
 }
 
 Describe 'PSWindowsUpdateNext module' {
@@ -25,7 +30,7 @@ Describe 'PSWindowsUpdateNext module' {
         Split-Path (Split-Path $dll -Parent) -Leaf | Should -Be $expected
     }
 
-    It 'exports cmdlet <_>' -ForEach $script:expectedCmdlets {
+    It 'exports cmdlet <_>' -ForEach $expectedCmdlets {
         Get-Command -Name $_ -Module PSWindowsUpdateNext -CommandType Cmdlet | Should -Not -BeNullOrEmpty
     }
 
@@ -35,7 +40,7 @@ Describe 'PSWindowsUpdateNext module' {
         }
     }
 
-    It 'has help for cmdlet <_>' -ForEach $script:expectedCmdlets {
+    It 'has help for cmdlet <_>' -ForEach $expectedCmdlets {
         (Get-Help $_).Synopsis | Should -Not -Match '^\s*$'
     }
 
