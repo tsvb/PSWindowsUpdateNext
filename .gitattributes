@@ -1,0 +1,12 @@
+# Normalize line endings; PowerShell and Visual Studio files stay CRLF on checkout.
+* text=auto
+*.cs text
+*.csproj text
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.ps1xml text eol=crlf
+*.xml text
+*.md text
+*.yml text
+*.dll binary

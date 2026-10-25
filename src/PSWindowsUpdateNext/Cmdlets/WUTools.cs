@@ -1,0 +1,2390 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Management.Automation;
+using System.Net;
+using System.Net.Http;
+using System.Net.Mail;
+using System.Net.NetworkInformation;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.ServiceProcess;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using WUApiLib;
+
+namespace PSWindowsUpdateNext;
+
+/// <summary>
+/// Universal function used in rest of PSWindowsUpdateNext module.
+/// </summary>
+public class WUTools : PSCmdlet
+{
+	/// <summary>
+	/// Possible http web request methods
+	/// </summary>
+	public enum HttpWebRequestMethod
+	{
+		/// <summary>Post</summary>
+		POST,
+		/// <summary>Get</summary>
+		GET
+	}
+
+	/// <summary>
+	/// Specifies the BuiltinUser type.
+	/// </summary>
+	public enum CodeType
+	{
+		/// <summary>
+		/// Success stream.
+		/// </summary>
+		Success = 1,
+		/// <summary>
+		/// Error stream.
+		/// </summary>
+		Error,
+		/// <summary>
+		/// Warning stream.
+		/// </summary>
+		Warning,
+		/// <summary>
+		/// Verbose stream.
+		/// </summary>
+		Verbose,
+		/// <summary>
+		/// Debug stream.
+		/// </summary>
+		Debug,
+		/// <summary>
+		/// Information stream.
+		/// </summary>
+		Information,
+		/// <summary>
+		/// Throw stream.
+		/// </summary>
+		Throw
+	}
+
+	/// <summary>
+	/// Extra entropy mixed into DPAPI so blobs produced by other software cannot be fed to this module.
+	/// </summary>
+	private static readonly byte[] DpapiEntropy = Encoding.UTF8.GetBytes("PSWindowsUpdateNext.SaveAsSystem.v1");
+
+	private static readonly HttpClient SharedHttpClient = CreateHttpClient();
+
+	static WUTools()
+	{
+#if NETFRAMEWORK
+		// .NET Framework 4.7.2+ follows the OS default, but older runtimes default to TLS 1.0.
+		ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12 | (SecurityProtocolType)12288;
+#endif
+	}
+
+	private static HttpClient CreateHttpClient()
+	{
+		HttpClient client = new HttpClient();
+		client.Timeout = TimeSpan.FromMinutes(2.0);
+		client.DefaultRequestHeaders.UserAgent.ParseAdd("PSWindowsUpdateNext/" + typeof(WUTools).Assembly.GetName().Version);
+		return client;
+	}
+
+	/// <summary>
+	/// Protect a string with DPAPI (machine scope) so a scheduled task running as SYSTEM on the
+	/// same machine can read it back. The original module used a time-derived AES key that anyone
+	/// could reproduce; DPAPI keeps the blob opaque off-box.
+	/// </summary>
+	/// <param name="plainText">Text to protect</param>
+	/// <param name="passPhrase">Ignored; kept for signature compatibility</param>
+	public static string EncryptString(string plainText, string passPhrase)
+	{
+		byte[] data = ProtectedData.Protect(Encoding.UTF8.GetBytes(plainText), DpapiEntropy, DataProtectionScope.LocalMachine);
+		return Convert.ToBase64String(data);
+	}
+
+	/// <summary>
+	/// Reverse of <see cref="EncryptString"/>. Throws when the blob was not produced on this machine.
+	/// </summary>
+	/// <param name="cipherText">Protected text</param>
+	/// <param name="passPhrase">Ignored; kept for signature compatibility</param>
+	public static string DecryptString(string cipherText, string passPhrase)
+	{
+		byte[] data = ProtectedData.Unprotect(Convert.FromBase64String(cipherText), DpapiEntropy, DataProtectionScope.LocalMachine);
+		return Encoding.UTF8.GetString(data);
+	}
+
+	/// <summary>
+	/// Run reboot.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public string RunReboot(string Computer)
+	{
+		string text = "";
+		ProcessStartInfo processStartInfo = new ProcessStartInfo();
+		processStartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+		processStartInfo.FileName = "cmd";
+		if (IsLocalHost(Computer))
+		{
+			processStartInfo.Arguments = "/C shutdown -f -r -t 5";
+		}
+		else
+		{
+			processStartInfo.Arguments = "/C shutdown -m " + Computer + " -f -r -t 5";
+		}
+		text = processStartInfo.FileName + " " + processStartInfo.Arguments;
+		Process.Start(processStartInfo);
+		return text;
+	}
+
+	/// <summary>
+	/// Schedule reboot.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	/// <param name="ScheduleReboot">Computer name</param>
+	public string ScheduleReboot(string Computer, DateTime ScheduleReboot)
+	{
+		DateTime now = DateTime.Now;
+		TimeSpan timeSpan = ScheduleReboot - now;
+		string text = "";
+		if ((int)timeSpan.TotalSeconds > 0)
+		{
+			ProcessStartInfo processStartInfo = new ProcessStartInfo();
+			processStartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+			processStartInfo.FileName = "cmd";
+			if (IsLocalHost(Computer))
+			{
+				processStartInfo.Arguments = "/C shutdown -f -r -t " + (int)timeSpan.TotalSeconds;
+			}
+			else
+			{
+				processStartInfo.Arguments = "/C shutdown -m " + Computer + " -f -r -t " + (int)timeSpan.TotalSeconds;
+			}
+			text = processStartInfo.FileName + " " + processStartInfo.Arguments;
+			Process.Start(processStartInfo);
+		}
+		else
+		{
+			text = "Restart time has expired: " + ScheduleReboot.ToString() + " < " + now.ToString();
+		}
+		return text;
+	}
+
+	/// <summary>
+	/// Cancel reboot.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public string CancelReboot(string Computer)
+	{
+		string text = "";
+		ProcessStartInfo processStartInfo = new ProcessStartInfo();
+		processStartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+		processStartInfo.FileName = "cmd";
+		if (IsLocalHost(Computer))
+		{
+			processStartInfo.Arguments = "/C shutdown -f -a";
+		}
+		else
+		{
+			processStartInfo.Arguments = "/C shutdown -m " + Computer + " -f -a";
+		}
+		text = processStartInfo.FileName + " " + processStartInfo.Arguments;
+		Process.Start(processStartInfo);
+		return text;
+	}
+
+	/// <summary>
+	/// Check is computer is localhost or remotehost.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public bool IsLocalHost(string Computer)
+	{
+		if (Computer.ToLower() == "localhost")
+		{
+			return true;
+		}
+		if (Computer.ToLower() == ".")
+		{
+			return true;
+		}
+		if (Computer.ToLower() == "127.0.0.1")
+		{
+			return true;
+		}
+		if (Computer.ToLower() == "::1")
+		{
+			return true;
+		}
+		if (Computer.ToLower() == Environment.MachineName.ToLower())
+		{
+			return true;
+		}
+		string text = Dns.GetHostName().ToLower();
+		if (Computer.ToLower() == text)
+		{
+			return true;
+		}
+		Collection<string> collection = new Collection<string>();
+		IPHostEntry hostEntry = Dns.GetHostEntry("");
+		if (Computer.ToLower() == hostEntry.HostName.ToLower())
+		{
+			return true;
+		}
+		IPAddress[] addressList = hostEntry.AddressList;
+		foreach (IPAddress iPAddress in addressList)
+		{
+			collection.Add(iPAddress.ToString());
+		}
+		return collection.Contains(Computer.ToLower());
+	}
+
+	/// <summary>
+	/// Restart Windows Update service on specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public void RestartService(string Computer)
+	{
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				ServiceController serviceController = new ServiceController("Windows Update");
+				Thread.Sleep(500);
+				serviceController.Stop();
+				serviceController.WaitForStatus(ServiceControllerStatus.Stopped);
+				Thread.Sleep(500);
+				serviceController.Start();
+				serviceController.WaitForStatus(ServiceControllerStatus.Running);
+				return;
+			}
+			catch
+			{
+				return;
+			}
+		}
+		try
+		{
+			ServiceController serviceController2 = new ServiceController("Windows Update", Computer);
+			Thread.Sleep(500);
+			serviceController2.Stop();
+			serviceController2.WaitForStatus(ServiceControllerStatus.Stopped);
+			Thread.Sleep(500);
+			serviceController2.Start();
+			serviceController2.WaitForStatus(ServiceControllerStatus.Running);
+		}
+		catch
+		{
+		}
+	}
+
+	/// <summary>
+	/// Stope service on specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	/// <param name="ServiceName">Service name</param>
+	public void StopService(string Computer, string ServiceName)
+	{
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				ServiceController serviceController = new ServiceController(ServiceName);
+				if (serviceController.Status == ServiceControllerStatus.Running)
+				{
+					Thread.Sleep(500);
+					serviceController.Stop();
+					serviceController.WaitForStatus(ServiceControllerStatus.Stopped);
+				}
+				return;
+			}
+			catch
+			{
+				return;
+			}
+		}
+		try
+		{
+			ServiceController serviceController2 = new ServiceController(ServiceName, Computer);
+			if (serviceController2.Status == ServiceControllerStatus.Running)
+			{
+				Thread.Sleep(500);
+				serviceController2.Stop();
+				serviceController2.WaitForStatus(ServiceControllerStatus.Stopped);
+			}
+		}
+		catch
+		{
+		}
+	}
+
+	/// <summary>
+	/// Start service on specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	/// <param name="ServiceName">Service name</param>
+	public void StartService(string Computer, string ServiceName)
+	{
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				ServiceController serviceController = new ServiceController(ServiceName);
+				if (serviceController.Status == ServiceControllerStatus.Stopped)
+				{
+					Thread.Sleep(500);
+					serviceController.Start();
+					serviceController.WaitForStatus(ServiceControllerStatus.Running);
+				}
+				return;
+			}
+			catch
+			{
+				return;
+			}
+		}
+		try
+		{
+			ServiceController serviceController2 = new ServiceController(ServiceName, Computer);
+			if (serviceController2.Status == ServiceControllerStatus.Stopped)
+			{
+				Thread.Sleep(500);
+				serviceController2.Start();
+				serviceController2.WaitForStatus(ServiceControllerStatus.Running);
+			}
+		}
+		catch
+		{
+		}
+	}
+
+	/// <summary>
+	/// Start service on specific machine.
+	/// </summary>
+	/// <param name="FileName">Name of starting file</param>
+	/// <param name="Arguments">Arguments</param>
+	public void RunProcess(string FileName, string Arguments)
+	{
+		try
+		{
+			Process process = new Process();
+			ProcessStartInfo processStartInfo = new ProcessStartInfo();
+			processStartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+			processStartInfo.FileName = FileName;
+			processStartInfo.Arguments = Arguments;
+			process.StartInfo = processStartInfo;
+			process.Start();
+		}
+		catch
+		{
+		}
+	}
+
+	/// <summary>
+	/// Test ping connection for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public bool TestPing(string Computer)
+	{
+		bool flag = false;
+		try
+		{
+			Ping ping = new Ping();
+			PingReply pingReply = ping.Send(Computer);
+			flag = true;
+			WriteDebug(Computer + ": Ping connection Succeeded");
+		}
+		catch
+		{
+			flag = false;
+			WriteDebug(Computer + ": Ping connection Failed");
+		}
+		return flag;
+	}
+
+	/// <summary>
+	/// Create object ServiceManager for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	/// <param name="e">Current Exception</param>
+	public ErrorRecord ParseException(string Computer, Exception e)
+	{
+		if (Regex.IsMatch(e.Message, "800706BA", RegexOptions.IgnoreCase))
+		{
+			return new ErrorRecord(new Exception(Computer + ": Connection failure, check firewall on destination machine."), "800706BA", ErrorCategory.ResourceUnavailable, null);
+		}
+		if (Regex.IsMatch(e.Message, "80070005", RegexOptions.IgnoreCase))
+		{
+			return new ErrorRecord(new Exception(Computer + ": Access denied. You don't have permission to perform this task."), "80070005", ErrorCategory.PermissionDenied, null);
+		}
+		return new ErrorRecord(new Exception(Computer + ": Unknown failure. "), "Unknown", ErrorCategory.PermissionDenied, null);
+	}
+
+	/// <summary>
+	/// InvokeRestMethod 
+	/// </summary>
+	/// <param name="requestUrl">Requested url</param>
+	/// <param name="requestMethod">Request method</param>
+	/// <param name="requestBody">Body</param>
+	/// <param name="requestHeaders">Headers</param>
+	public string InvokeRestMethod(string requestUrl, HttpWebRequestMethod requestMethod, Dictionary<string, string> requestBody, Dictionary<string, string> requestHeaders)
+	{
+		Uri uri = new Uri(requestUrl);
+		if (uri.Scheme != Uri.UriSchemeHttps)
+		{
+			throw new InvalidOperationException("Refusing to send a non-HTTPS request to " + uri.Host + ".");
+		}
+		if (requestMethod == HttpWebRequestMethod.GET && requestBody != null && requestBody.Count > 0)
+		{
+			StringBuilder query = new StringBuilder();
+			foreach (KeyValuePair<string, string> item in requestBody)
+			{
+				query.Append(query.Length == 0 ? "?" : "&");
+				query.Append(Uri.EscapeDataString(item.Key)).Append('=').Append(Uri.EscapeDataString(item.Value));
+			}
+			uri = new Uri(requestUrl + query);
+		}
+		using HttpRequestMessage request = new HttpRequestMessage(requestMethod == HttpWebRequestMethod.POST ? HttpMethod.Post : HttpMethod.Get, uri);
+		if (requestHeaders != null)
+		{
+			foreach (KeyValuePair<string, string> header in requestHeaders)
+			{
+				request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+			}
+		}
+		if (requestMethod == HttpWebRequestMethod.POST)
+		{
+			request.Content = new FormUrlEncodedContent(requestBody ?? new Dictionary<string, string>());
+		}
+		using HttpResponseMessage response = SharedHttpClient.SendAsync(request).GetAwaiter().GetResult();
+		response.EnsureSuccessStatusCode();
+		return response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+	}
+
+	/// <summary>
+	/// Create object ServiceManager for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetServiceManagerObj(string Computer)
+	{
+		UpdateServiceManager updateServiceManager = null;
+		PSObject pSObject = new PSObject();
+		pSObject.Properties.Add(new PSNoteProperty("ComputerName", Computer));
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				updateServiceManager = (UpdateServiceManager)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("F8D253D9-89A4-4DAA-87B6-1168369F0B21")));
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("ServiceManagerObj", updateServiceManager));
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord value = ParseException(Computer, ex);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Local"));
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.ServiceManager", Computer);
+				updateServiceManager = (UpdateServiceManager)Activator.CreateInstance(typeFromProgID);
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("ServiceManagerObj", updateServiceManager));
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord value2 = ParseException(Computer, ex2);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value2));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex2));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Activator"));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Create object ServiceManager for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public WUAPIObject GetWUApiServiceManagerObj(string Computer)
+	{
+		UpdateServiceManager updateServiceManager = null;
+		WUAPIObject wUAPIObject = new WUAPIObject();
+		wUAPIObject.ComputerName = Computer;
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				updateServiceManager = (UpdateServiceManager)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("F8D253D9-89A4-4DAA-87B6-1168369F0B21")));
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = updateServiceManager;
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord error = ParseException(Computer, ex);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error;
+				wUAPIObject.Exception = ex;
+			}
+			wUAPIObject.Mode = "Local";
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.ServiceManager", Computer);
+				updateServiceManager = (UpdateServiceManager)Activator.CreateInstance(typeFromProgID);
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = updateServiceManager;
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord error2 = ParseException(Computer, ex2);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error2;
+				wUAPIObject.Exception = ex2;
+			}
+			wUAPIObject.Mode = "Activator";
+		}
+		return wUAPIObject;
+	}
+
+	/// <summary>
+	/// Create object UpdateSession for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetUpdateSessionObj(string Computer)
+	{
+		UpdateSession updateSession = null;
+		PSObject pSObject = new PSObject();
+		pSObject.Properties.Add(new PSNoteProperty("ComputerName", Computer));
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				updateSession = (UpdateSession)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("4CB43D7F-7EEE-4906-8698-60DA1C38F2FE")));
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("UpdateSessionObj", updateSession));
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord value = ParseException(Computer, ex);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Local"));
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.Session", Computer);
+				updateSession = (UpdateSession)Activator.CreateInstance(typeFromProgID);
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("UpdateSessionObj", updateSession));
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord value2 = ParseException(Computer, ex2);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value2));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex2));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Activator"));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Create object UpdateSession for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public WUAPIObject GetWUApiUpdateSessionObj(string Computer)
+	{
+		UpdateSession updateSession = null;
+		WUAPIObject wUAPIObject = new WUAPIObject();
+		wUAPIObject.ComputerName = Computer;
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				updateSession = (UpdateSession)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("4CB43D7F-7EEE-4906-8698-60DA1C38F2FE")));
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = updateSession;
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord error = ParseException(Computer, ex);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error;
+				wUAPIObject.Exception = ex;
+			}
+			wUAPIObject.Mode = "Local";
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.Session", Computer);
+				updateSession = (UpdateSession)Activator.CreateInstance(typeFromProgID);
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = updateSession;
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord error2 = ParseException(Computer, ex2);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error2;
+				wUAPIObject.Exception = ex2;
+			}
+			wUAPIObject.Mode = "Activator";
+		}
+		return wUAPIObject;
+	}
+
+	/// <summary>
+	/// Create object Installer for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetInstallerObj(string Computer)
+	{
+		UpdateInstaller updateInstaller = null;
+		PSObject pSObject = new PSObject();
+		pSObject.Properties.Add(new PSNoteProperty("ComputerName", Computer));
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				updateInstaller = (UpdateInstaller)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("D2E0FE7F-D23E-48E1-93C0-6FA8CC346474")));
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("InstallerObj", updateInstaller));
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord value = ParseException(Computer, ex);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Local"));
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.Installer", Computer);
+				updateInstaller = (UpdateInstaller)Activator.CreateInstance(typeFromProgID);
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("InstallerObj", updateInstaller));
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord value2 = ParseException(Computer, ex2);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value2));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex2));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Activator"));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Create object Installer for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public WUAPIObject GetWUApiInstallerObj(string Computer)
+	{
+		UpdateInstaller updateInstaller = null;
+		WUAPIObject wUAPIObject = new WUAPIObject();
+		wUAPIObject.ComputerName = Computer;
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				updateInstaller = (UpdateInstaller)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("D2E0FE7F-D23E-48E1-93C0-6FA8CC346474")));
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = updateInstaller;
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord error = ParseException(Computer, ex);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error;
+				wUAPIObject.Exception = ex;
+			}
+			wUAPIObject.Mode = "Local";
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.Installer", Computer);
+				updateInstaller = (UpdateInstaller)Activator.CreateInstance(typeFromProgID);
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = updateInstaller;
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord error2 = ParseException(Computer, ex2);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error2;
+				wUAPIObject.Exception = ex2;
+			}
+			wUAPIObject.Mode = "Activator";
+		}
+		return wUAPIObject;
+	}
+
+	/// <summary>
+	/// Create object SystemInfo for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetSystemInfoObj(string Computer)
+	{
+		SystemInformation systemInformation = null;
+		PSObject pSObject = new PSObject();
+		pSObject.Properties.Add(new PSNoteProperty("ComputerName", Computer));
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				systemInformation = (SystemInformation)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("C01B9BA0-BEA7-41BA-B604-D0A36F469133")));
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("SystemInfoObj", systemInformation));
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord value = ParseException(Computer, ex);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Local"));
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.Installer", Computer);
+				systemInformation = (SystemInformation)Activator.CreateInstance(typeFromProgID);
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("SystemInfoObj", systemInformation));
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord value2 = ParseException(Computer, ex2);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value2));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex2));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Activator"));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Create object SystemInfo for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public WUAPIObject GetWUApiSystemInfoObj(string Computer)
+	{
+		SystemInformation systemInformation = null;
+		WUAPIObject wUAPIObject = new WUAPIObject();
+		wUAPIObject.ComputerName = Computer;
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				systemInformation = (SystemInformation)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("C01B9BA0-BEA7-41BA-B604-D0A36F469133")));
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = systemInformation;
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord error = ParseException(Computer, ex);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error;
+				wUAPIObject.Exception = ex;
+			}
+			wUAPIObject.Mode = "Local";
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.SystemInformation", Computer);
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = systemInformation;
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord error2 = ParseException(Computer, ex2);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error2;
+				wUAPIObject.Exception = ex2;
+			}
+			wUAPIObject.Mode = "Activator";
+		}
+		return wUAPIObject;
+	}
+
+	/// <summary>
+	/// Create object AutoUpdate for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetAutoUpdateObj(string Computer)
+	{
+		PSObject pSObject = new PSObject();
+		pSObject.Properties.Add(new PSNoteProperty("ComputerName", Computer));
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				AutomaticUpdates value = (AutomaticUpdates)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("BFE18E9C-6D87-4450-B37C-E02F0B373803")));
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("AutoUpdateObj", value));
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord value2 = ParseException(Computer, ex);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value2));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Local"));
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.AutoUpdate", Computer);
+				object value3 = Activator.CreateInstance(typeFromProgID);
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("AutoUpdateObj", value3));
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord value4 = ParseException(Computer, ex2);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value4));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex2));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Activator"));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Create object AutoUpdate for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public WUAPIObject GetWUApiAutoUpdateObj(string Computer)
+	{
+		WUAPIObject wUAPIObject = new WUAPIObject();
+		wUAPIObject.ComputerName = Computer;
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				AutomaticUpdates automaticUpdates = (AutomaticUpdates)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("BFE18E9C-6D87-4450-B37C-E02F0B373803")));
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = automaticUpdates;
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord error = ParseException(Computer, ex);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error;
+				wUAPIObject.Exception = ex;
+			}
+			wUAPIObject.Mode = "Local";
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.AutoUpdate", Computer);
+				object obj = Activator.CreateInstance(typeFromProgID);
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = obj;
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord error2 = ParseException(Computer, ex2);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error2;
+				wUAPIObject.Exception = ex2;
+			}
+			wUAPIObject.Mode = "Activator";
+		}
+		return wUAPIObject;
+	}
+
+	/// <summary>
+	/// Create object AgentInfo for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetAgentInfoObj(string Computer)
+	{
+		WindowsUpdateAgentInfo windowsUpdateAgentInfo = null;
+		PSObject pSObject = new PSObject();
+		pSObject.Properties.Add(new PSNoteProperty("ComputerName", Computer));
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				windowsUpdateAgentInfo = (WindowsUpdateAgentInfo)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("C2E88C2F-6F5B-4AAA-894B-55C847AD3A2D")));
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("AgentInfoObj", windowsUpdateAgentInfo));
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord value = ParseException(Computer, ex);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Local"));
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.AgentInfo", Computer);
+				windowsUpdateAgentInfo = (WindowsUpdateAgentInfo)Activator.CreateInstance(typeFromProgID);
+				pSObject.Properties.Add(new PSNoteProperty("Status", true));
+				pSObject.Properties.Add(new PSNoteProperty("AgentInfoObj", windowsUpdateAgentInfo));
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord value2 = ParseException(Computer, ex2);
+				pSObject.Properties.Add(new PSNoteProperty("Status", false));
+				pSObject.Properties.Add(new PSNoteProperty("Error", value2));
+				pSObject.Properties.Add(new PSNoteProperty("Exception", ex2));
+			}
+			pSObject.Properties.Add(new PSNoteProperty("Mode", "Activator"));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Create object AgentInfo for specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public WUAPIObject GetWUApiAgentInfoObj(string Computer)
+	{
+		WindowsUpdateAgentInfo windowsUpdateAgentInfo = null;
+		WUAPIObject wUAPIObject = new WUAPIObject();
+		wUAPIObject.ComputerName = Computer;
+		if (IsLocalHost(Computer))
+		{
+			try
+			{
+				windowsUpdateAgentInfo = (WindowsUpdateAgentInfo)Activator.CreateInstance(Marshal.GetTypeFromCLSID(new Guid("C2E88C2F-6F5B-4AAA-894B-55C847AD3A2D")));
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = windowsUpdateAgentInfo;
+			}
+			catch (Exception ex)
+			{
+				ErrorRecord error = ParseException(Computer, ex);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error;
+				wUAPIObject.Exception = ex;
+			}
+			wUAPIObject.Mode = "Local";
+		}
+		else
+		{
+			try
+			{
+				Type typeFromProgID = Type.GetTypeFromProgID("Microsoft.Update.AgentInfo", Computer);
+				windowsUpdateAgentInfo = (WindowsUpdateAgentInfo)Activator.CreateInstance(typeFromProgID);
+				wUAPIObject.Status = true;
+				wUAPIObject.Object = windowsUpdateAgentInfo;
+			}
+			catch (Exception ex2)
+			{
+				ErrorRecord error2 = ParseException(Computer, ex2);
+				wUAPIObject.Status = false;
+				wUAPIObject.Error = error2;
+				wUAPIObject.Exception = ex2;
+			}
+			wUAPIObject.Mode = "Activator";
+		}
+		return wUAPIObject;
+	}
+
+	/// <summary>
+	/// convert size to human friendly format.
+	/// </summary>
+	/// <param name="Size">Size in bytes</param>
+	public string ConvertSize(decimal Size)
+	{
+		string text = "";
+		if (Math.Round(Size, 0) < 1024m)
+		{
+			return Math.Round(Size, 0) + "B";
+		}
+		if (Math.Round(Size, 0) < 1048576m)
+		{
+			return Math.Round(Size / 1024m, 0) + "KB";
+		}
+		if (Math.Round(Size, 0) < 1073741824m)
+		{
+			return Math.Round(Size / 1048576m, 0) + "MB";
+		}
+		if (Math.Round(Size, 0) < 1099511627776m)
+		{
+			return Math.Round(Size / 1073741824m, 0) + "GB";
+		}
+		if (Math.Round(Size, 0) < 1125899906842624m)
+		{
+			return Math.Round(Size / 1099511627776m, 0) + "TB";
+		}
+		return Math.Round(Size / 1125899906842624m, 0) + "PB";
+	}
+
+	/// <summary>
+	/// Get PSWindowsUpdateNext module version on specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public PSObject GetPSWUModule(string Computer)
+	{
+		string text = "$Module = Get-Module PSWindowsUpdateNext -ListAvailable | Sort Version -Descending | Select -First 1; $Module | Add-Member -Type NoteProperty -Name PSWUDllVersion -Value ([Version]$(Try{[System.Diagnostics.FileVersionInfo]::GetVersionInfo($(Join-Path -Path $Module.ModuleBase -ChildPath $Module.RootModule)).FileVersion}Catch{'0.0.0.0'})); $Module";
+		string text2 = "";
+		text2 = ((!IsLocalHost(Computer)) ? ("Invoke-Command -ComputerName " + Computer + " -Command {" + text + "} -Authentication Negotiate") : text);
+		ErrorRecord errorRecord = null;
+		Collection<PSObject> collection;
+		using (PowerShell powerShell = PowerShell.Create())
+		{
+			powerShell.AddScript(text2);
+			collection = powerShell.Invoke();
+			if (powerShell.Streams.Error.Count > 0)
+			{
+				errorRecord = powerShell.Streams.Error[0];
+			}
+		}
+		PSObject pSObject = new PSObject();
+		if (errorRecord == null)
+		{
+			try
+			{
+				pSObject = collection[0];
+			}
+			catch
+			{
+				pSObject.Properties.Add(new PSNoteProperty("PSWindowsUpdateNext", null));
+				pSObject.Properties.Add(new PSNoteProperty("PSWUModuleDll", null));
+			}
+		}
+		else
+		{
+			pSObject.Properties.Add(new PSNoteProperty("Error", errorRecord));
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Check PSWindowsUpdateNext module version on specific machine.
+	/// </summary>
+	/// <param name="Computer">Computer name</param>
+	public ErrorRecord CheckPSWUModule(string Computer)
+	{
+		PSObject pSWUModule = GetPSWUModule(Computer);
+		ErrorRecord errorRecord = null;
+		try
+		{
+			errorRecord = (ErrorRecord)pSWUModule.Properties["Error"].Value;
+		}
+		catch
+		{
+		}
+		Version version = MinimumPSWUModule();
+		Version version2 = null;
+		if (errorRecord == null)
+		{
+			try
+			{
+				version2 = (Version)pSWUModule.Properties["Version"].Value;
+				if (version2 < version)
+				{
+					return new ErrorRecord(new Exception("To Invoke-WUJob you need PSWindowsUpdateNext " + version.ToString() + " on destination machine! Current module version is " + version2.ToString()), "LowModuleVersion", ErrorCategory.ResourceUnavailable, null);
+				}
+				return null;
+			}
+			catch
+			{
+				return new ErrorRecord(new Exception("PSWindowsUpdateNext module missing on destination machine"), "ModuleMissing", ErrorCategory.ResourceUnavailable, null);
+			}
+		}
+		return errorRecord;
+	}
+
+	/// <summary>
+	/// Define minimum PSWindowsUpdateNext module version.
+	/// </summary>
+	public Version MinimumPSWUModule()
+	{
+		return new Version("2.0.0.0");
+	}
+
+	/// <summary>
+	/// Save Credentials to Credential Manager.
+	/// </summary>
+	/// <param name="Username">User name</param>
+	/// <param name="Password">Password</param>
+	public void SaveCredential(string Username, string Password)
+	{
+		using Credential credential = new Credential();
+		credential.Password = Password;
+		credential.Username = Username;
+		credential.Target = "PSWindowsUpdateNext";
+		credential.Type = CredentialType.Generic;
+		credential.PersistenceType = PersistenceType.LocalComputer;
+		credential.Save();
+	}
+
+	/// <summary>
+	/// Get credentials from Credential Manager.
+	/// </summary>
+	public PSCredMan GetCredential()
+	{
+		using Credential credential = new Credential();
+		credential.Target = "PSWindowsUpdateNext";
+		credential.Load();
+		PSCredMan pSCredMan = new PSCredMan();
+		pSCredMan.Username = credential.Username;
+		pSCredMan.Password = credential.Password;
+		return pSCredMan;
+	}
+
+	/// <summary>
+	/// Get PSWindowsUpdateNext module path.
+	/// </summary>
+	public string PSWUModulePath()
+	{
+		// The DLL lives in <ModuleBase>\<tfm>\; settings and logs belong next to the manifest.
+		string dllDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+		string parent = Path.GetDirectoryName(dllDirectory);
+		if (parent != null && File.Exists(Path.Combine(parent, "PSWindowsUpdateNext.psd1")))
+		{
+			return parent;
+		}
+		return dllDirectory;
+	}
+
+	/// <summary>
+	/// Get GetPSWUSettings.
+	/// </summary>
+	public Hashtable GetPSWUSettings()
+	{
+		string text = PSWUModulePath();
+		string path = text + "\\PSWUSettings.xml";
+		if (File.Exists(path))
+		{
+			try
+			{
+				using StreamReader streamReader = new StreamReader(path);
+				string source = streamReader.ReadToEnd();
+				PSObject pSObject = (PSObject)PSSerializer.Deserialize(source);
+				return (Hashtable)pSObject.BaseObject;
+			}
+			catch
+			{
+			}
+		}
+		return new Hashtable();
+	}
+
+	/// <summary>
+	/// Save GetPSWUSettings.
+	/// </summary>
+	public void SetPSWUSettings(Hashtable PSWUSettings)
+	{
+		string text = PSWUModulePath();
+		string path = text + "\\PSWUSettings.xml";
+		string value = PSSerializer.Serialize(PSWUSettings);
+		try
+		{
+			using StreamWriter streamWriter = new StreamWriter(path);
+			streamWriter.WriteLine(value);
+		}
+		catch (Exception ex)
+		{
+			WriteDebug("Something goes wrong: " + ex.Message);
+		}
+	}
+
+	/// <summary>
+	/// Convert object to HTML formated table.
+	/// </summary>
+	/// <param name="PSObjects">Output object</param>
+	/// <param name="PSObjectProperties">Choosed properties</param>
+	/// <param name="CmdletInfo">Send ifno about used cmdlet</param>
+	/// <param name="TableStyle">Format style: Table | List</param>
+	public string ObjectToHtml(Collection<PSObject> PSObjects, Collection<string> PSObjectProperties, PSObject CmdletInfo = null, string TableStyle = null)
+	{
+		string text = "";
+		text += "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\"  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\r\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\r\n<head>\r\n<style>\r\n<!--\r\n    table {\r\n        font-family: Verdana;\r\n        border-style: dashed;\r\n        border-width: 1px;\r\n        border-color: #FF6600;\r\n        padding: 5px;\r\n        background-color: #FFFFCC;\r\n        table-layout: auto;\r\n        text-align: left;\r\n        font-size: 8pt;\r\nwidth: 100%;\r\n        }\r\n    table th {\r\n        border-bottom-style: solid;\r\n        border-bottom-width: 1px;\r\n        text-align: left;\r\n        }\r\n    table td {\r\n        border-top-style: solid;\r\n        border-top-width: 1px;\r\n        }\r\n    p {\r\n        margin-bottom: 2px\r\n        margin-top: 2px\r\n        }\r\n    body {\r\n        font-family: Verdana;\r\n        font-size: 8pt;\r\n        }\r\n-->\r\n</style>\r\n</head>\r\n<body>\r\n";
+		StringBuilder table = new StringBuilder();
+		if (TableStyle == null)
+		{
+			TableStyle = "Table";
+			if (PSObjectProperties.Count > 5)
+			{
+				TableStyle = "List";
+			}
+		}
+		string CellValue(PSObject obj, string name)
+		{
+			try
+			{
+				object value = obj.Properties[name]?.Value;
+				return value == null ? string.Empty : WebUtility.HtmlEncode(value.ToString());
+			}
+			catch
+			{
+				return string.Empty;
+			}
+		}
+		table.Append("<table>\r\n");
+		if (TableStyle == "Table")
+		{
+			table.Append("\t<tr>");
+			foreach (string PSObjectProperty in PSObjectProperties)
+			{
+				table.Append("<th scope=\"col\">").Append(WebUtility.HtmlEncode(PSObjectProperty)).Append("</th>");
+			}
+			table.Append("</tr>\r\n");
+			foreach (PSObject PSObject in PSObjects)
+			{
+				table.Append("\t<tr>");
+				foreach (string PSObjectProperty2 in PSObjectProperties)
+				{
+					table.Append("<td>").Append(CellValue(PSObject, PSObjectProperty2)).Append("</td>");
+				}
+				table.Append("</tr>\r\n");
+			}
+		}
+		else
+		{
+			foreach (PSObject PSObject2 in PSObjects)
+			{
+				foreach (string PSObjectProperty3 in PSObjectProperties)
+				{
+					table.Append("\t<tr><td>").Append(WebUtility.HtmlEncode(PSObjectProperty3)).Append("</td><td>").Append(CellValue(PSObject2, PSObjectProperty3)).Append("</td></tr>\r\n");
+				}
+			}
+		}
+		table.Append("</table>\r\n");
+		text += table.ToString();
+		if (CmdletInfo != null)
+		{
+			text += "<p>";
+			foreach (PSPropertyInfo property in CmdletInfo.Properties)
+			{
+				text = text + WebUtility.HtmlEncode(property.Name) + ": " + CellValue(CmdletInfo, property.Name) + "<br />";
+			}
+			text += "</p>";
+		}
+		return text + "</body>\r\n</html>";
+	}
+
+	/// <summary>
+	/// test email settings.
+	/// </summary>
+	/// <param name="LocalPSWUSettings">Send parameters</param>
+	public PSObject TestMail(Hashtable LocalPSWUSettings)
+	{
+		PSObject pSObject = new PSObject();
+		string[] array = new string[8] { "SmtpServer", "Port", "EnableSsl", "To", "From", "Subject", "Properties", "Style" };
+		Hashtable pSWUSettings = GetPSWUSettings();
+		Hashtable hashtable = new Hashtable();
+		string[] array2 = array;
+		foreach (string text in array2)
+		{
+			if (LocalPSWUSettings.ContainsKey(text))
+			{
+				hashtable.Add(text, LocalPSWUSettings[text]);
+				continue;
+			}
+			if (pSWUSettings.ContainsKey(text))
+			{
+				if (text != "Properties")
+				{
+					hashtable.Add(text, pSWUSettings[text]);
+				}
+				continue;
+			}
+			switch (text)
+			{
+			case "Port":
+				hashtable.Add("Port", 25);
+				break;
+			case "EnableSsl":
+				hashtable.Add("EnableSsl", false);
+				break;
+			case "Properties":
+				hashtable.Add("Properties", "*");
+				break;
+			case "Subject":
+				hashtable.Add("Subject", Environment.MachineName + ": Windows Update report " + DateTime.Now.ToString());
+				break;
+			default:
+			{
+				ErrorRecord value = new ErrorRecord(new Exception("Missing " + text + "; Use -PSWUSettings or declare PSWUSettings.xml in ModuleBase path."), text, ErrorCategory.CloseError, null);
+				pSObject.Properties.Add(new PSNoteProperty("ErrorRecord", value));
+				return pSObject;
+			}
+			case "Style":
+				break;
+			}
+		}
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Send email report.
+	/// </summary>
+	/// <param name="LocalPSWUSettings">Send parameters</param>
+	/// <param name="PSObjects">Output object</param>
+	/// <param name="CmdletInfo">Send ifno about used cmdlet</param>
+	public PSObject SendMail(Hashtable LocalPSWUSettings, Collection<PSObject> PSObjects, PSObject CmdletInfo = null)
+	{
+		PSObject pSObject = new PSObject();
+		string[] array = new string[8] { "SmtpServer", "Port", "EnableSsl", "To", "From", "Subject", "Properties", "Style" };
+		Hashtable pSWUSettings = GetPSWUSettings();
+		Hashtable hashtable = new Hashtable();
+		string[] array2 = array;
+		foreach (string text in array2)
+		{
+			if (LocalPSWUSettings.ContainsKey(text))
+			{
+				hashtable.Add(text, LocalPSWUSettings[text]);
+				continue;
+			}
+			if (pSWUSettings.ContainsKey(text))
+			{
+				if (text != "Properties")
+				{
+					hashtable.Add(text, pSWUSettings[text]);
+				}
+				continue;
+			}
+			switch (text)
+			{
+			case "Port":
+				hashtable.Add("Port", 25);
+				break;
+			case "EnableSsl":
+				hashtable.Add("EnableSsl", false);
+				break;
+			case "Properties":
+				hashtable.Add("Properties", "*");
+				break;
+			case "Subject":
+				hashtable.Add("Subject", Environment.MachineName + ": Windows Update report " + DateTime.Now.ToString());
+				break;
+			default:
+			{
+				ErrorRecord value = new ErrorRecord(new Exception("Missing " + text + "; Use -PSWUSettings or declare PSWUSettings.xml in ModuleBase path."), text, ErrorCategory.CloseError, null);
+				pSObject.Properties.Add(new PSNoteProperty("ErrorRecord", value));
+				return pSObject;
+			}
+			case "Style":
+				break;
+			}
+		}
+		pSObject.Properties.Add(new PSNoteProperty("PSWUSettings", hashtable));
+		string text2 = "";
+		if (PSObjects != null)
+		{
+			Collection<string> collection = new Collection<string>();
+			if (hashtable["Properties"].ToString() == "*")
+			{
+				foreach (PSPropertyInfo property in PSObjects[0].Properties)
+				{
+					if (!collection.Contains(property.Name.ToString()))
+					{
+						collection.Add(property.Name.ToString());
+					}
+				}
+			}
+			else if (hashtable["Properties"].ToString() == "**")
+			{
+				foreach (PSObject PSObject in PSObjects)
+				{
+					foreach (PSPropertyInfo property2 in PSObject.Properties)
+					{
+						if (!collection.Contains(property2.Name.ToString()))
+						{
+							collection.Add(property2.Name.ToString());
+						}
+					}
+				}
+			}
+			else
+			{
+				object[] array3 = (object[])hashtable["Properties"];
+				foreach (object obj in array3)
+				{
+					collection.Add(obj.ToString());
+				}
+			}
+			text2 = ((!hashtable.ContainsKey("Style")) ? ObjectToHtml(PSObjects, collection, CmdletInfo) : ObjectToHtml(PSObjects, collection, CmdletInfo, hashtable["Style"].ToString()));
+			MailMessage mailMessage = new MailMessage(hashtable["From"].ToString(), hashtable["To"].ToString());
+			SmtpClient smtpClient = new SmtpClient();
+			smtpClient.Host = hashtable["SmtpServer"].ToString();
+			smtpClient.Port = Convert.ToInt32(hashtable["Port"].ToString());
+			smtpClient.EnableSsl = (bool)hashtable["EnableSsl"];
+			smtpClient.DeliveryMethod = SmtpDeliveryMethod.Network;
+			PSCredMan credential = GetCredential();
+			if (credential.Username != null)
+			{
+				smtpClient.UseDefaultCredentials = false;
+				NetworkCredential credentials = new NetworkCredential(credential.Username, credential.Password);
+				smtpClient.Credentials = credentials;
+				mailMessage.Subject = hashtable["Subject"].ToString() + ".";
+			}
+			else
+			{
+				mailMessage.Subject = hashtable["Subject"].ToString();
+			}
+			mailMessage.Body = text2;
+			mailMessage.BodyEncoding = new UTF8Encoding();
+			mailMessage.IsBodyHtml = true;
+			try
+			{
+				smtpClient.Send(mailMessage);
+			}
+			catch (Exception exception)
+			{
+				ErrorRecord value2 = new ErrorRecord(exception, "SmtpException", ErrorCategory.CloseError, null);
+				pSObject.Properties.Add(new PSNoteProperty("ErrorRecord", value2));
+				return pSObject;
+			}
+			return pSObject;
+		}
+		ErrorRecord value3 = new ErrorRecord(new Exception("Missing Body"), "Body", ErrorCategory.CloseError, null);
+		pSObject.Properties.Add(new PSNoteProperty("ErrorRecord", value3));
+		return pSObject;
+	}
+
+	/// <summary>
+	/// Get description from error code 
+	/// </summary>
+	/// <param name="ErrorCode">Error code</param>
+	public WUApiCode GetWUApiCodeDetails(int ErrorCode)
+	{
+		Dictionary<string, WUApiCode> dictionary = new Dictionary<string, WUApiCode>
+		{
+			{
+				"0x00000000",
+				new WUApiCode
+				{
+					CodeType = 1,
+					HResult = "0x00000000",
+					Message = "",
+					Description = "Success"
+				}
+			},
+			{
+				"0x00240001",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240001",
+					Message = "WU_S_SERVICE_STOP",
+					Description = "WUA was stopped successfully."
+				}
+			},
+			{
+				"0x00240002",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240002",
+					Message = "WU_S_SELFUPDATE",
+					Description = "WUA updated itself."
+				}
+			},
+			{
+				"0x00240003",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240003",
+					Message = "WU_S_UPDATE_ERROR",
+					Description = "The operation completed successfully but errors occurred applying the updates."
+				}
+			},
+			{
+				"0x00240004",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240004",
+					Message = "WU_S_MARKED_FOR_DISCONNECT",
+					Description = " callback was marked to be disconnected later because the request to disconnect the operation came while a callback was executing."
+				}
+			},
+			{
+				"0x00240005",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240005",
+					Message = "WU_S_REBOOT_REQUIRED",
+					Description = "The system must be restarted to complete installation of the update."
+				}
+			},
+			{
+				"0x00240006",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240006",
+					Message = "WU_S_ALREADY_INSTALLED",
+					Description = "The update to be installed is already installed on the system."
+				}
+			},
+			{
+				"0x00240007",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240007",
+					Message = "WU_S_ALREADY_UNINSTALLED",
+					Description = "The update to be removed is not installed on the system."
+				}
+			},
+			{
+				"0x00240008",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00240008",
+					Message = "WU_S_ALREADY_DOWNLOADED",
+					Description = "The update to be downloaded has already been downloaded."
+				}
+			},
+			{
+				"0x00242015",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x00242015",
+					Message = "WU_S_UH_INSTALLSTILLPENDING",
+					Description = "The installation operation for the update is still in progress."
+				}
+			},
+			{
+				"0x80040154",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80040154",
+					Message = "REGDB_E_CLASSNOTREG",
+					Description = "CreateInstance failed for UpdateServiceManager Class not registered. Probably you use wrong Service Manager."
+				}
+			},
+			{
+				"0x80070005",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80070005",
+					Message = "ERROR_ACCESS_DENIED",
+					Description = "Probably you don't have permission to perform this task or the authentication method is not supported."
+				}
+			},
+			{
+				"0x800706BE",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x800706BE",
+					Message = "RPC_S_SERVER_UNAVAILABLE",
+					Description = "RPC connection failure, check firewall on destination machine."
+				}
+			},
+			{
+				"0x80072EE2",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80072EE2",
+					Message = "ERROR_INTERNET_TIMEOUT",
+					Description = "The request has timed out. Probably you don't have connection to Windows Update server."
+				}
+			},
+			{
+				"0x80240001",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240001",
+					Message = "WU_E_NO_SERVICE",
+					Description = "WUA was unable to provide the service."
+				}
+			},
+			{
+				"0x80240002",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240002",
+					Message = "WU_E_MAX_CAPACITY_REACHED",
+					Description = "The maximum capacity of the service was exceeded."
+				}
+			},
+			{
+				"0x80240003",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240003",
+					Message = "WU_E_UNKNOWN_ID",
+					Description = "WUA cannot find an ID."
+				}
+			},
+			{
+				"0x80240004",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240004",
+					Message = "WU_E_NOT_INITIALIZED",
+					Description = "The object could not be initialized."
+				}
+			},
+			{
+				"0x80240005",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240005",
+					Message = "WU_E_RANGEOVERLAP",
+					Description = "The update handler requested a byte range overlapping a previously requested range."
+				}
+			},
+			{
+				"0x80240006",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240006",
+					Message = "WU_E_TOOMANYRANGES",
+					Description = "The requested number of byte ranges exceeds the maximum number (2³¹ - 1)."
+				}
+			},
+			{
+				"0x80240007",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240007",
+					Message = "WU_E_INVALIDINDEX",
+					Description = "The index to a collection was invalid."
+				}
+			},
+			{
+				"0x80240008",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240008",
+					Message = "WU_E_ITEMNOTFOUND",
+					Description = "The key for the item queried could not be found."
+				}
+			},
+			{
+				"0x80240009",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240009",
+					Message = "WU_E_OPERATIONINPROGRESS",
+					Description = "Another conflicting operation was in progress. Some operations such as installation cannot be performed twice simultaneously."
+				}
+			},
+			{
+				"0x8024000A",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024000A",
+					Message = "WU_E_COULDNOTCANCE",
+					Description = "Cancellation of the operation was not allowed."
+				}
+			},
+			{
+				"0x8024000B",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024000B",
+					Message = "WU_E_CALL_CANCELLED",
+					Description = "Operation was cancelled."
+				}
+			},
+			{
+				"0x8024000C",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024000C",
+					Message = "WU_E_NOOP",
+					Description = "No operation was required."
+				}
+			},
+			{
+				"0x8024000D",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024000D",
+					Message = "WU_E_XML_MISSINGDATA",
+					Description = "WUA could not find required information in the update's XML data."
+				}
+			},
+			{
+				"0x8024000E",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024000E",
+					Message = "WU_E_XML_INVALID",
+					Description = "WUA found invalid information in the update's XML data."
+				}
+			},
+			{
+				"0x8024000F",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024000F",
+					Message = "WU_E_CYCLE_DETECTED",
+					Description = "Circular update relationships were detected in the metadata."
+				}
+			},
+			{
+				"0x80240010",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240010",
+					Message = "WU_E_TOO_DEEP_RELATION",
+					Description = "Update relationships too deep to evaluate were evaluated."
+				}
+			},
+			{
+				"0x80240011",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240011",
+					Message = "WU_E_INVALID_RELATIONSHIP",
+					Description = "An invalid update relationship was detected."
+				}
+			},
+			{
+				"0x80240012",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240012",
+					Message = "WU_E_REG_VALUE_INVALID",
+					Description = "An invalid registry value was read."
+				}
+			},
+			{
+				"0x80240013",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240013",
+					Message = "WU_E_DUPLICATE_ITEM",
+					Description = "Operation tried to add a duplicate item to a list."
+				}
+			},
+			{
+				"0x80240014",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240014",
+					Message = "WU_E_INVALID_INSTALL_REQUESTED",
+					Description = "Updates that are requested for install are not installable by the caller."
+				}
+			},
+			{
+				"0x80240016",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240016",
+					Message = "WU_E_INSTALL_NOT_ALLOWED",
+					Description = "Operation tried to install while another installation was in progress or the system was pending a mandatory restart."
+				}
+			},
+			{
+				"0x80240017",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240017",
+					Message = "WU_E_NOT_APPLICABLE",
+					Description = "Operation was not performed because there are no applicable updates."
+				}
+			},
+			{
+				"0x80240018",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240018",
+					Message = "WU_E_NO_USERTOKEN",
+					Description = "Operation failed because a required user token is missing."
+				}
+			},
+			{
+				"0x80240019",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240019",
+					Message = "WU_E_EXCLUSIVE_INSTALL_CONFLICT",
+					Description = "An exclusive update can't be installed with other updates at the same time."
+				}
+			},
+			{
+				"0x8024001A",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024001A",
+					Message = "WU_E_POLICY_NOT_SET",
+					Description = "A policy value was not set."
+				}
+			},
+			{
+				"0x8024001B",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024001B",
+					Message = "WU_E_SELFUPDATE_IN_PROGRESS",
+					Description = "The operation could not be performed because the Windows Update Agent is self-updating."
+				}
+			},
+			{
+				"0x8024001D",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024001D",
+					Message = "WU_E_INVALID_UPDATE",
+					Description = "An update contains invalid metadata."
+				}
+			},
+			{
+				"0x8024001E",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024001E",
+					Message = "WU_E_SERVICE_STOP",
+					Description = "Operation did not complete because the service or system was being shut down."
+				}
+			},
+			{
+				"0x8024001F",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024001F",
+					Message = "WU_E_NO_CONNECTION",
+					Description = "Operation did not complete because the network connection was unavailable."
+				}
+			},
+			{
+				"0x80240020",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240020",
+					Message = "WU_E_NO_INTERACTIVE_USER",
+					Description = "Operation did not complete because there is no logged-on interactive user."
+				}
+			},
+			{
+				"0x80240021",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240021",
+					Message = "WU_E_TIME_OUT",
+					Description = "Operation did not complete because it timed out."
+				}
+			},
+			{
+				"0x80240022",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240022",
+					Message = "WU_E_ALL_UPDATES_FAILED",
+					Description = "Operation failed for all the updates."
+				}
+			},
+			{
+				"0x80240023",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240023",
+					Message = "WU_E_EULAS_DECLINED",
+					Description = "The license terms for all updates were declined."
+				}
+			},
+			{
+				"0x80240024",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240024",
+					Message = "WU_E_NO_UPDATE",
+					Description = "There are no updates."
+				}
+			},
+			{
+				"0x80240025",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240025",
+					Message = "WU_E_USER_ACCESS_DISABLED",
+					Description = "Group Policy settings prevented access to Windows Update."
+				}
+			},
+			{
+				"0x80240026",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240026",
+					Message = "WU_E_INVALID_UPDATE_TYPE",
+					Description = "The type of update is invalid."
+				}
+			},
+			{
+				"0x80240027",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240027",
+					Message = "WU_E_URL_TOO_LONG",
+					Description = "The URL exceeded the maximum length."
+				}
+			},
+			{
+				"0x80240028",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240028",
+					Message = "WU_E_UNINSTALL_NOT_ALLOWED",
+					Description = "The update could not be uninstalled because the request did not originate from a Windows Server Update Services (WSUS) server."
+				}
+			},
+			{
+				"0x80240029",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240029",
+					Message = "WU_E_INVALID_PRODUCT_LICENSE",
+					Description = "Search may have missed some updates before there is an unlicensed application on the system."
+				}
+			},
+			{
+				"0x8024002A",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024002A",
+					Message = "WU_E_MISSING_HANDLER",
+					Description = "A component required to detect applicable updates was missing."
+				}
+			},
+			{
+				"0x8024002B",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024002B",
+					Message = "WU_E_LEGACYSERVER",
+					Description = "An operation did not complete because it requires a newer version of server."
+				}
+			},
+			{
+				"0x8024002C",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024002C",
+					Message = "WU_E_BIN_SOURCE_ABSENT",
+					Description = "A delta-compressed update could not be installed because it required the source."
+				}
+			},
+			{
+				"0x8024002D",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024002D",
+					Message = "WU_E_SOURCE_ABSENT",
+					Description = "A full-file update could not be installed because it required the source."
+				}
+			},
+			{
+				"0x8024002E",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024002E",
+					Message = "WU_E_WU_DISABLED",
+					Description = "Access to an unmanaged server is not allowed."
+				}
+			},
+			{
+				"0x8024002F",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024002F",
+					Message = "WU_E_CALL_CANCELLED_BY_POLICY",
+					Description = "Operation did not complete because the DisableWindowsUpdateAccess policy was set in the registry."
+				}
+			},
+			{
+				"0x80240030",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240030",
+					Message = "WU_E_INVALID_PROXY_SERVER",
+					Description = "The format of the proxy list was invalid."
+				}
+			},
+			{
+				"0x80240031",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240031",
+					Message = "WU_E_INVALID_FILE",
+					Description = "The file is in the wrong format."
+				}
+			},
+			{
+				"0x80240032",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240032",
+					Message = "WU_E_INVALID_CRITERIA",
+					Description = "The search criteria string was invalid. Probably you have wrong pre search query."
+				}
+			},
+			{
+				"0x80240033",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240033",
+					Message = "WU_E_EULA_UNAVAILABLE",
+					Description = "License terms could not be downloaded."
+				}
+			},
+			{
+				"0x80240034",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240034",
+					Message = "WU_E_DOWNLOAD_FAILED",
+					Description = "Update failed to download."
+				}
+			},
+			{
+				"0x80240035",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240035",
+					Message = "WU_E_UPDATE_NOT_PROCESSED",
+					Description = "The update was not processed."
+				}
+			},
+			{
+				"0x80240036",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240036",
+					Message = "WU_E_INVALID_OPERATION",
+					Description = "The object's current state did not allow the operation."
+				}
+			},
+			{
+				"0x80240037",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240037",
+					Message = "WU_E_NOT_SUPPORTED",
+					Description = "The functionality for the operation is not supported."
+				}
+			},
+			{
+				"0x80240039",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240039",
+					Message = "WU_E_TOO_MANY_RESYNC",
+					Description = "Agent is asked by server to resync too many times."
+				}
+			},
+			{
+				"0x80240040",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240040",
+					Message = "WU_E_NO_SERVER_CORE_SUPPORT",
+					Description = "The WUA API method does not run on the server core installation."
+				}
+			},
+			{
+				"0x80240041",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240041",
+					Message = "WU_E_SYSPREP_IN_PROGRESS",
+					Description = "Service is not available while sysprep is running."
+				}
+			},
+			{
+				"0x80240042",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240042",
+					Message = "WU_E_UNKNOWN_SERVICE",
+					Description = "The update service is no longer registered with automatic updates."
+				}
+			},
+			{
+				"0x80240043",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240043",
+					Message = "WU_E_NO_UI_SUPPORT",
+					Description = "No support for the WUA user interface."
+				}
+			},
+			{
+				"0x80240044",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240044",
+					Message = "WU_E_PER_MACHINE_UPDATE_ACCESS_DENIED",
+					Description = "Only administrators can perform this operation on per-computer updates. Use run as administrator."
+				}
+			},
+			{
+				"0x80240045",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240045",
+					Message = "WU_E_UNSUPPORTED_SEARCHSCOPE",
+					Description = "A search was attempted with a scope that is not currently supported for this type of search."
+				}
+			},
+			{
+				"0x80240046",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240046",
+					Message = "WU_E_BAD_FILE_URL",
+					Description = "The URL does not point to a file."
+				}
+			},
+			{
+				"0x80240047",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240047",
+					Message = "WU_E_NOTSUPPORTED",
+					Description = "The operation requested is not supported."
+				}
+			},
+			{
+				"0x80240048",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240048",
+					Message = "WU_E_INVALID_NOTIFICATION_INFO",
+					Description = "The featured update notification info returned by the server is invalid."
+				}
+			},
+			{
+				"0x80240049",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240049",
+					Message = "WU_E_OUTOFRANGE",
+					Description = "The data is out of range."
+				}
+			},
+			{
+				"0x8024004A",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024004A",
+					Message = "WU_E_SETUP_IN_PROGRESS",
+					Description = "WUA operations are not available while operating system setup is running."
+				}
+			},
+			{
+				"0x80240FFF",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80240FFF",
+					Message = "WU_E_UNEXPECTED",
+					Description = "An operation failed due to reasons not covered by another error code."
+				}
+			},
+			{
+				"0x80244016",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80244016",
+					Message = "WU_E_PT_HTTP_STATUS_BAD_REQUEST",
+					Description = "Same as HTTP status 400 - the server could not process the request due to invalid syntax."
+				}
+			},
+			{
+				"0x80244017",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80244017",
+					Message = "WU_E_PT_HTTP_STATUS_DENIED",
+					Description = "Same as HTTP status 401 - the requested resource requires user authentication."
+				}
+			},
+			{
+				"0x80244018",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80244018",
+					Message = "WU_E_PT_HTTP_STATUS_FORBIDDEN",
+					Description = "Same as HTTP status 403 - server understood the request, but declined to fulfill it."
+				}
+			},
+			{
+				"0x80244019",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80244019",
+					Message = "WU_E_PT_HTTP_STATUS_NOT_FOUND",
+					Description = "Same as HTTP status 404 - the server cannot find the requested URI."
+				}
+			},
+			{
+				"0x8024401A",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024401A",
+					Message = "WU_E_PT_HTTP_STATUS_BAD_METHOD",
+					Description = "Same as HTTP status 405 - the HTTP method is not allowed."
+				}
+			},
+			{
+				"0x8024401B",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024401B",
+					Message = "WU_E_PT_HTTP_STATUS_PROXY_AUTH_REQ",
+					Description = "Same as HTTP status 407 - proxy authentication is required."
+				}
+			},
+			{
+				"0x8024401C",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x8024401C",
+					Message = "WU_E_PT_HTTP_STATUS_REQUEST_TIMEOUT",
+					Description = "Same as HTTP status 408 - the server timed out waiting for the request."
+				}
+			},
+			{
+				"0x80244022",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80244022",
+					Message = "WU_E_PT_HTTP_STATUS_SERVICE_UNAVAIL",
+					Description = "Same as HTTP status 503 - the service is temporarily overloaded."
+				}
+			},
+			{
+				"0x80248014",
+				new WUApiCode
+				{
+					CodeType = 2,
+					HResult = "0x80248014",
+					Message = "WU_E_DS_UNKNOWNSERVICE",
+					Description = "An operation did not complete because the service is not in the data store. Probably you don't have permission for remote connection to Windows Update Agent or used wrong ServiceID."
+				}
+			}
+		};
+		string key = "0x" + Convert.ToString(ErrorCode, 16);
+		if (dictionary.TryGetValue(key, out var value))
+		{
+			return value;
+		}
+		return null;
+	}
+}

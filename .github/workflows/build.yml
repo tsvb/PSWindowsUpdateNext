@@ -1,0 +1,68 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build module
+        shell: pwsh
+        run: ./build.ps1 -Configuration Release
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.5 -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Test in PowerShell 7
+        shell: pwsh
+        run: |
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './tests'
+          $cfg.Run.Exit = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $cfg
+
+      - name: Test in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './tests'
+          $cfg.Run.Exit = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $cfg
+
+      - name: Upload module
+        uses: actions/upload-artifact@v4
+        with:
+          name: PSWindowsUpdateNext
+          path: out/PSWindowsUpdateNext
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PSWindowsUpdateNext
+          path: PSWindowsUpdateNext
+
+      - name: Zip module
+        shell: pwsh
+        run: Compress-Archive -Path PSWindowsUpdateNext -DestinationPath "PSWindowsUpdateNext-${{ github.ref_name }}.zip"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: PSWindowsUpdateNext-*.zip

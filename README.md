@@ -1,137 +1,112 @@
-# PSWindowsUpdate
-[![PSGallery Version](https://img.shields.io/powershellgallery/v/PSWindowsUpdate.svg?style=flat&logo=powershell&label=PSGallery%20Version)](https://www.powershellgallery.com/packages/PSWindowsUpdate) [![PSGallery Downloads](https://img.shields.io/powershellgallery/dt/PSWindowsUpdate.svg?style=flat&logo=powershell&label=PSGallery%20Downloads)](https://www.powershellgallery.com/packages/PSWindowsUpdate) [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-blue?style=flat&logo=powershell)](https://www.powershellgallery.com/packages/PSWindowsUpdate) [![PSGallery Platform](https://img.shields.io/powershellgallery/p/PSWindowsUpdate.svg?style=flat&logo=powershell&label=PSGallery%20Platform)](https://www.powershellgallery.com/packages/PSWindowsUpdate)
+# PSWindowsUpdateNext
 
-This module contain cmdlets to manage Windows Update Client.
+Cmdlets to manage the Windows Update client from PowerShell. This is a community-maintained
+continuation of Michal Gajda's [PSWindowsUpdate](https://github.com/mgajda83/PSWindowsUpdate),
+which has not shipped source code and whose last release was 2.2.1.5 in July 2024.
 
-## Table of Contents
-- [PSWindowsUpdate](#PSWindowsUpdate)
-- [Release Notes](#Release-Notes)
-- [Install module from the PowerShell Gallery](#Install-module-from-the-PowerShell-Gallery)
-- [Usage and Examples](#Usage-and-Examples)
-  - [Get-WindowsUpdate / Install-WindowsUpdate](#Get-WindowsUpdate-/-Install-WindowsUpdate)
-  - [Add-WUServiceManager](#Add-WUServiceManager)
-  - [Get-WUHistory](#Get-WUHistory)
-  - [Remove-WindowsUpdate](#Remove-WindowsUpdate)
-  - [Get-WUSettings / Set-WUSettings](#-WUSettings-/-Set-WUSettings)
-- [Support](#Support)
+The original module was distributed only as a compiled DLL under the MIT license. This project
+recovered the C# source from that DLL, committed it, and builds it for both Windows PowerShell 5.1
+and PowerShell 7. All 19 cmdlets and their parameters are unchanged, so existing scripts keep working
+after `Import-Module PSWindowsUpdateNext`.
 
-# Release Notes
-v2.2.1  
-- Set-WUSettings added params to control TargetRelease for control Feature Updates version and Windows Update for Business
-- Fixed Remove-WindowsUpdate bug
-- Fixed Get-WUHistory bug
-- Fixed Get-WindowsUpdate sendreport bug
+## What changed from PSWindowsUpdate 2.2.1.x
 
-v2.2.0  
-- New cmdlet Reset-WUComponents, for reset Windows Updates components to default
-- New cmdlet Get-WUOfflineMSU, for download offline msu package from microsoft Update Catalog
+Compatibility
+- Runs natively in PowerShell 7.4+ (.NET 8 build) as well as Windows PowerShell 5.1 (.NET Framework 4.7.2 build). The loader picks the right binary.
+- Impersonation (`-Credential`) uses `WindowsIdentity.RunImpersonated`, which exists on both runtimes.
+- Source code is in the repository and builds with a plain `dotnet build`.
 
-v2.1.1  
-- Remove-WindowsUpdate added WU Api uninstallation mode
-- Fixed bug with slow run cmdlets
-- Added support for Office 365 users to send emails
+Fixes
+- `Get-WUOfflineMSU` works again. The Catalog moved downloads to `catalog.sf.dl.delivery.mp.microsoft.com`, which the old regex never matched, and the old parser depended on the deprecated MSHTML COM engine. The new parser reads the Catalog HTML directly and downloads every file an update lists, not just the first.
+- BITS downloads no longer spin a CPU core at 100 percent while waiting.
+- Console prompts go through the PowerShell host instead of `Console.ReadLine`, so they work in hosts other than the console.
+- Step headings in `Reset-WUComponents` are written through the host instead of raw `Console.WriteLine`.
 
-v2.1.0  
-- New cmdlet Set-PSWUSettings, for save PSWUSettings to xml file
-- Param -SendReport can use smtp server credentials
-- Install-WindowsUpdate added -RecurseCycle param, to install next updates after reboot
-- Install-WindowsUpdate added new pre search criteria: DeploymentAction, IsAssigned, IsPresent, BrowseOnly and AutoSelectOnWebSites
-- Change location of PSWindowsUpdate.log file to $Env:TEMP
-- Fixed Get-WULastResults bugs
-- Fixed Remove-WUServiceManager bugs
+Security
+- All Catalog traffic is HTTPS only, and download URLs must be on `*.windowsupdate.com` or `*.microsoft.com`.
+- Each downloaded file is checked against the SHA-1 digest the Catalog publishes and its Authenticode signature is verified with WinVerifyTrust. Files that fail are deleted. `-SkipSignatureCheck` keeps unsigned files if you really need them.
+- `Invoke-WUJob` passes the script to `powershell.exe` as `-EncodedCommand`, so quotes in `-Script` cannot alter the command line. The readable script is kept in the task description.
+- `Set-PSWUSettings -SaveAsSystem` protects the SMTP credential with DPAPI (machine scope) instead of AES keyed by the current minute.
+- Debug output no longer leaks the first character of supplied passwords.
+- TLS 1.2 and 1.3 are enabled explicitly on .NET Framework.
+- The module no longer runs `Unblock-File` across its own folder on import.
+- Obsolete Code Access Security attributes and the `System.Web` dependency are gone.
 
-v2.0.0 
-- Rewrite whole script module to binary module
+## Install
 
-# Install module from the PowerShell Gallery
-If your machine doesn't natively use TLS 1.2, run this first:
-```PowerShell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Until the module is published to the PowerShell Gallery, download the zip from the
+[Releases](https://github.com/tsvb/PSWindowsUpdateNext/releases) page or build it yourself:
+
+```powershell
+git clone https://github.com/tsvb/PSWindowsUpdateNext.git
+cd PSWindowsUpdateNext
+.\build.ps1 -Install
+Import-Module PSWindowsUpdateNext
 ```
 
-Install module:
-```PowerShell
-Install-Module PSWindowsUpdate
-```
-or 
-```PowerShell
-Install-PSResource PSWindowsUpdate
-```
+Requirements: Windows 10 / Server 2016 or later, .NET Framework 4.7.2 for Windows PowerShell, or
+PowerShell 7.4 or later. Most cmdlets need an elevated session.
 
-# Usage and Examples
-Import the module:
-```PowerShell
-Import-Module PSWindowsUpdate
-```
-### Get-WindowsUpdate / Install-WindowsUpdate
-Get windows updates available from default service manager.
-```PowerShell
-Get-WindowsUpdate
-```
+## Usage
 
-Get all available update on remote machine MG-PC, that contains in Title this two words 'Aktualizacja' and 'Windows 11' (as regular expression).
-```PowerShell
-Get-WindowsUpdate -ComputerName MG-PC -MicrosoftUpdate -Title "Aktualizacja.*Windows 11" -Verbose
-```
+The cmdlet names and parameters are the same as PSWindowsUpdate.
 
-Hide update with KBArticleID: KB4034658.
-```PowerShell
-Get-WindowsUpdate -KBArticleID KB4034658 -Hide -Verbose
-```
-...or use alias
-```PowerShell
-Hide-WindowsUpdate -KBArticleID KB4034658 -Verbose
-```
+```powershell
+# List available updates from Microsoft Update
+Get-WindowsUpdate -MicrosoftUpdate
 
-Schedule job at 6:00 PM to install update with UpdateId='ddb74579-7a1f-4d1f-80c8-e8647055314e' and RevisionNumber=200. Update will be automaticaly accepted and after all server will be automaticaly restarted if needed.
-```PowerShell
-Get-WindowsUpdate -MicrosoftUpdate -UpdateID ddb74579-7a1f-4d1f-80c8-e8647055314e -RevisionNumber 200 -ScheduleJob (Get-Date -Hour 18 -Minute 0 -Second 0) -Install -AcceptAll -AutoReboot -Verbose
-```
-...or use alias
-```PowerShell
-Install-WindowsUpdate -MicrosoftUpdate -UpdateID ddb74579-7a1f-4d1f-80c8-e8647055314e -RevisionNumber 200 -ScheduleJob (Get-Date -Hour 18 -Minute 0 -Second 0) -AcceptAll -AutoReboot -Verbose
-```
+# Install everything, reboot if required
+Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot
 
-### Add-WUServiceManager
-Try register Microsoft Update service as Service Manager.
-```PowerShell
-Add-WUServiceManager -MicrosoftUpdate
-```
+# Hide an update
+Hide-WindowsUpdate -KBArticleID KB4034658
 
-Try register Offline Sync Service from file C:\wsusscn2.cab.
-```PowerShell
-Add-WUServiceManager -ScanFileLocation C:\wsusscn2.cab
-```
-
-### Get-WUHistory
-Get Windows Update history.
-```PowerShell
-Get-WUHistory
-```
-
-Get Windows Update Agent history for last 24h.
-```PowerShell
+# Update history for the last 24 hours
 Get-WUHistory -MaxDate (Get-Date).AddDays(-1)
+
+# Uninstall an update
+Uninstall-WindowsUpdate -KBArticleID KB958830
+
+# Download an offline package from the Microsoft Update Catalog
+Get-WUOfflineMSU -KBArticleID 5062553 -Destination C:\Updates
+
+# Pin feature updates to a release
+Set-WUSettings -TargetReleaseVersion -TargetReleaseVersionInfo 23H2 -ProductVersion "Windows 11"
 ```
 
-### Remove-WindowsUpdate
-Try to uninstall update with specific KBArticleID = KB958830.
-```PowerShell
-Get-WUUninstall -KBArticleID KB958830
+Cmdlets: Add-WUServiceManager, Enable-WURemoting, Get-WindowsUpdate, Get-WUApiVersion, Get-WUHistory,
+Get-WUInstallerStatus, Get-WUJob, Get-WULastResults, Get-WUOfflineMSU, Get-WURebootStatus,
+Get-WUServiceManager, Get-WUSettings, Invoke-WUJob, Remove-WindowsUpdate, Remove-WUServiceManager,
+Reset-WUComponents, Set-PSWUSettings, Set-WUSettings, Update-WUModule.
+
+Aliases: Install-WindowsUpdate, Download-WindowsUpdate, Hide-WindowsUpdate, UnHide-WindowsUpdate,
+Show-WindowsUpdate, Uninstall-WindowsUpdate, Get-WUList, Get-WUInstall, Clear-WUJob.
+
+## Things to know before using the remoting cmdlets
+
+These behaviors are inherited from the original module. They are useful in a managed domain and
+dangerous elsewhere, so they are called out here.
+
+- `Enable-WURemoting -LocalAccountTokenFilterPolicy` sets `LocalAccountTokenFilterPolicy=1`, which disables UAC remote restrictions for local administrator accounts on that machine. It also sets `ForceGuest=0`, starts Remote Registry, and adds WinRM to TrustedHosts with `*`.
+- `Update-WUModule -ComputerName X` copies the module to the remote machine over the administrative share (`\\X\C$\...`), then runs `Enable-WURemoting` there.
+- `Invoke-WUJob` registers a Task Scheduler job that runs as SYSTEM with highest privileges. Anyone who can call it is already an administrator, but the job it creates is powerful.
+- `Reset-WUComponents` stops services, renames `SoftwareDistribution` and `catroot2`, re-registers DLLs, and resets Winsock and WinHTTP proxy settings.
+
+## Building
+
+```powershell
+dotnet build src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj -c Release
+.\build.ps1            # assembles out\PSWindowsUpdateNext
+Invoke-Pester .\tests  # smoke tests, run after build.ps1
 ```
 
-### Get-WUSettings / Set-WUSettings
-Get current Windows Update Client configuration.
-```PowerShell
-Get-WUSettings
-```
+The project multi-targets `net472` and `net8.0-windows`. PowerShell 7 already ships the
+Windows-specific runtime assemblies the module uses (System.Management, Microsoft.Management.Infrastructure,
+System.ServiceProcess.ServiceController, System.Security.Cryptography.ProtectedData), so nothing
+besides the module DLL is copied into the module folder.
 
-Set the target version for feature updates to Windows 10 22H2.
-```PowerShell
-Set-WUSettings -TargetReleaseVersion -TargetReleaseVersionInfo 22H2 -ProductVersion "Windows 10"
-```
+## Credits and license
 
-# Support
-I develop most of my code under open licenses, free of charge.
-If you are satisfied with these solutions, you can express your [support for me](https://www.paypal.com/donate/?hosted_button_id=JTUBKNG3EMEXY).
-The greater your support, the greater the motivation to develop them further. The more motivation, the more things I can create.
+Original work copyright (c) 2011-2023 Michal Gajda, released under the MIT license. If this module is
+useful to you, consider [supporting the original author](https://www.paypal.com/donate/?hosted_button_id=JTUBKNG3EMEXY).
+Modifications copyright (c) 2026 tsvb, same license. See [LICENSE](LICENSE).
