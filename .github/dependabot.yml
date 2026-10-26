@@ -18,6 +18,12 @@ updates:
     directory: /src/PSWindowsUpdateNext
     schedule:
       interval: weekly
+    # These packages are compile-time references to assemblies that Windows PowerShell 5.1 and
+    # PowerShell 7.4 supply at run time. A new major version would compile against APIs the host
+    # does not have, so major updates are ignored and moved deliberately.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       nuget:
         update-types:
