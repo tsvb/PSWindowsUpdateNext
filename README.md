@@ -24,7 +24,7 @@ Fixes
 
 Security
 - All Catalog traffic is HTTPS only, and download URLs must be on `*.windowsupdate.com` or `*.microsoft.com`.
-- Each downloaded file is checked against the SHA-1 digest the Catalog publishes and its Authenticode signature is verified with WinVerifyTrust. Files that fail are deleted. `-SkipSignatureCheck` keeps unsigned files if you really need them.
+- Each downloaded file is checked against the SHA-1 digest the Catalog publishes. Its Authenticode signature must be valid, must not be revoked, and must chain to a Microsoft root CA, so a file signed by anyone else is rejected. Files that fail are deleted. If revocation cannot be checked because the machine is offline, a file that matched the Catalog digest is kept with a warning. `-SkipSignatureCheck` keeps failing files with a warning if you really need them.
 - `Invoke-WUJob` passes the script to `powershell.exe` as `-EncodedCommand`, so quotes in `-Script` cannot alter the command line. The readable script is kept in the task description.
 - `Set-PSWUSettings -SaveAsSystem` protects the SMTP credential with DPAPI (machine scope) instead of AES keyed by the current minute.
 - Debug output no longer leaks the first character of supplied passwords.
