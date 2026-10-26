@@ -1,5 +1,31 @@
 # Changelog
 
+## 3.2.0 (2026-10-26)
+
+First release published to GitHub Releases and the PowerShell Gallery.
+
+### Security
+- `Get-WUOfflineMSU` now requires each downloaded file to be signed by Microsoft. The signer's chain must end at a Microsoft root CA: Root CA 2010 or 2011, ECC Product Root 2018, or the legacy 1997 and 2001 roots. A valid signature from any other publisher is rejected.
+- `Get-WUOfflineMSU` checks certificate revocation for the signing chain, and a revoked certificate fails. If revocation cannot be checked because the machine is offline or behind a proxy, a file that matched the Catalog's SHA-1 digest is kept with a warning.
+- Release files are Authenticode-signed with SHA-256 and timestamped. The release workflow refuses to publish unsigned files unless the repository variable `ALLOW_UNSIGNED_RELEASE` is `true`.
+
+### Added
+- Release pipeline: a tag must match the manifest, the project file, and this changelog. Signing runs in its own job. The GitHub release carries a zip and a SHA-256 checksum file, and publishing to the PowerShell Gallery waits for approval through the `release` environment. See `docs/RELEASING.md`.
+- `Get-WUOfflineMSU` output files report `SignatureStatus` and `SignerSubject`, and failure messages say why a signature was rejected.
+- Help source in `docs/help` as platyPS markdown, one page per cmdlet. `tools/Build-Help.ps1` regenerates the compiled help, and CI rebuilds it from the markdown on every build.
+- Tests that run the signature check on a Microsoft-signed file, a third-party-signed file, and an unsigned file.
+
+### Changed
+- Compiled help is rewritten against the compiled cmdlets. `-SkipSignatureCheck` and `-UpdateID` are documented. `-Silent`, `-HotFixID`, and `-AUOptions` are shown as the aliases they are. Parameter sets match the cmdlets. The swapped descriptions of `-WindowsUpdate` and `-MicrosoftUpdate` are corrected, and examples no longer reference the old module or its author's sites.
+- `Show-PSWUConsole` has complete comment-based help.
+
+### Fixed
+- Signature verification leaked a native copy of the file path on every call.
+
+### Removed
+- Help pages for `Get-WindowsUpdate_v2` and `Get-WUTest`, which the module does not export.
+- The vendored copy of Pester 6.2.0 that was committed by mistake.
+
 ## 3.1.0 (2026-10-25)
 
 ### Added

@@ -1,7 +1,7 @@
 @{
     # The .psm1 picks the right build (net472 for Windows PowerShell, net8.0 for PowerShell 7).
     RootModule = 'PSWindowsUpdateNext.psm1'
-    ModuleVersion = '3.1.0'
+    ModuleVersion = '3.2.0'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID = '5f0c9b4e-8a6d-4e2b-9c1f-2d7a3e6b8c01'
     Author = 'tsvb'

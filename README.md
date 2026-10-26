@@ -129,6 +129,11 @@ dotnet build src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj -c Release
 Invoke-Pester .\tests  # smoke tests, run after build.ps1
 ```
 
+Help for `Get-Help` is written as markdown in `docs/help`. After editing a page, run
+`.\tools\Build-Help.ps1` to regenerate `module\PSWindowsUpdateNext.dll-Help.xml` and commit both. It needs
+the `Microsoft.PowerShell.PlatyPS` module. Releases are cut by pushing a version tag; see
+[docs/RELEASING.md](docs/RELEASING.md).
+
 The project multi-targets `net472` and `net8.0-windows`. PowerShell 7 already ships the
 Windows-specific runtime assemblies the module uses (System.Management, Microsoft.Management.Infrastructure,
 System.ServiceProcess.ServiceController, System.Security.Cryptography.ProtectedData), so nothing
