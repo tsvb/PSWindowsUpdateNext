@@ -139,6 +139,11 @@ Windows-specific runtime assemblies the module uses (System.Management, Microsof
 System.ServiceProcess.ServiceController, System.Security.Cryptography.ProtectedData), so nothing
 besides the module DLL is copied into the module folder.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to build, test and send changes. To report a vulnerability, follow
+[SECURITY.md](SECURITY.md), which asks for a private report.
+
 ## Credits and license
 
 Original work copyright (c) 2011-2023 Michal Gajda, released under the MIT license. If this module is

@@ -9,6 +9,14 @@
 ### Tests
 - The desktop console test now runs. Pester 5 decides `-Skip` while it discovers tests, and the old apartment check ran too late, so the test was always skipped. CI also runs it in explicit STA hosts for PowerShell 7 and Windows PowerShell 5.1 and fails if the window is not built.
 
+### Added
+- `SECURITY.md` explains how to report a vulnerability privately. `CONTRIBUTING.md` explains how to build, test, update help and open a pull request.
+- Dependabot checks the GitHub Actions and NuGet dependencies every week.
+
+### Changed
+- Every build checks that `ModuleVersion` and the project file agree on the version, not only release tags.
+- The GitHub Actions used by the build are pinned to commit SHAs.
+
 ## 3.2.0 (2026-10-26)
 
 First release published to GitHub Releases and the PowerShell Gallery.
