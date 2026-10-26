@@ -198,15 +198,6 @@ public class SetPSWUSettings : PSCmdlet
 		string[] computerName = ComputerName;
 		foreach (string text in computerName)
 		{
-			int num = 1;
-			DateTime dateTime = new DateTime(1970, 1, 1);
-			DateTime dateTime2 = DateTime.Now.ToUniversalTime();
-			int seed = (int)Math.Floor((double)((long)(dateTime2 - dateTime).TotalMinutes / num));
-			int seed2 = (int)Math.Floor((double)((long)(dateTime2.AddMinutes(-1 * num) - dateTime).TotalMinutes / num));
-			int num2 = new Random(seed).Next();
-			int num3 = new Random(seed2).Next();
-			WriteDebug(DateTime.Now.ToString() + " " + num2);
-			WriteDebug(DateTime.Now.ToString() + " " + num3);
 			PSObject pSObject = new PSObject();
 			pSObject.Properties.Add(new PSNoteProperty("ComputerName", text));
 			if (MyInvocation.BoundParameters.ContainsKey("SaveAsSystem"))
@@ -215,21 +206,13 @@ public class SetPSWUSettings : PSCmdlet
 				WriteDebug(DateTime.Now.ToString() + " Catched encrypted string: " + SaveAsSystem);
 				try
 				{
-					text2 = WUTools.DecryptString(SaveAsSystem, num2.ToString());
+					// DPAPI, machine scope (see WUTools.DecryptString): only this computer can read the value.
+					text2 = WUTools.DecryptString(SaveAsSystem, null);
 				}
-				catch (Exception)
+				catch (Exception ex)
 				{
-					WriteDebug(DateTime.Now.ToString() + " Cant decrypt with current secret.");
-					try
-					{
-						text2 = WUTools.DecryptString(SaveAsSystem, num3.ToString());
-					}
-					catch (Exception)
-					{
-						WriteDebug(DateTime.Now.ToString() + " Cant decrypt with previous secret. Job is too old.");
-						WriteError(new ErrorRecord(new Exception("Cant decrypt with previous secret. Job is too old."), "Decrypt", ErrorCategory.CloseError, null));
-						return;
-					}
+					WriteError(new ErrorRecord(new Exception("Cannot decrypt the -SaveAsSystem value. It must be created by Set-PSWUSettings on this computer: " + ex.Message, ex), "Decrypt", ErrorCategory.InvalidData, null));
+					return;
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SaveAsSystem", SaveAsSystem));
 				string[] array = text2.Split('|');
@@ -251,7 +234,7 @@ public class SetPSWUSettings : PSCmdlet
 				WUToolsObj.SaveCredential(SmtpCredential.GetNetworkCredential().UserName, SmtpCredential.GetNetworkCredential().Password);
 				if (!MyInvocation.BoundParameters.ContainsKey("SaveAsSystem"))
 				{
-					string text5 = WUTools.EncryptString(SmtpCredential.GetNetworkCredential().UserName + "|" + SmtpCredential.GetNetworkCredential().Password, num2.ToString());
+					string text5 = WUTools.EncryptString(SmtpCredential.GetNetworkCredential().UserName + "|" + SmtpCredential.GetNetworkCredential().Password, null);
 					WriteDebug(DateTime.Now.ToString() + " Encrypted string to SaveAsSystem: " + text5);
 					string text6 = "$DebugPreference = 'continue'; Set-PSWUSettings -SaveAsSystem '" + text5 + "'";
 					if ((bool)SendReport)

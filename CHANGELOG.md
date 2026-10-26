@@ -17,15 +17,13 @@
 - `Set-WUSettings` no longer discards why a write failed. The error for a value it could not set now names the computer and the value and carries the exception message instead of a fixed "Access denied.". Reading the current value of a setting that is not set is still silent, but the reason now appears with `-Debug`.
 - Failures of service restarts (`Add-WUServiceManager`, `Remove-WUServiceManager`), service stop and start and external commands (`Reset-WUComponents`), and saving or loading `PSWUSettings.xml` (`Set-PSWUSettings`) are reported as warnings. They were silent.
 - All native calls resolve their DLL from System32 only.
+- `Set-PSWUSettings` no longer computes the unused minute-based key from the original module and no longer prints it with `-Debug`. The `-SaveAsSystem` value has been protected with machine-scope DPAPI since 3.0.0; a value that cannot be decrypted now produces a clear error.
 
 ### Fixed
 - Removed the three compiler warnings (each reported once per target): an ignored attribute in `INetFwPolicy2`, an unused variable in `ConvertSize`, and a `catch` that only rethrew in `WUCimSession.InstallUpdates`.
 
 ### Tests
 - The desktop console test now runs. Pester 5 decides `-Skip` while it discovers tests, and the old apartment check ran too late, so the test was always skipped. CI also runs it in explicit STA hosts for PowerShell 7 and Windows PowerShell 5.1 and fails if the window is not built.
-
-### Known issues
-- `Set-PSWUSettings` derives the key that protects the saved SMTP credential from the current UTC minute (`System.Random`). That is obfuscation, not encryption. Analyzer rule CA5394 is suppressed for that file until the stored format can change.
 
 ## 3.2.0 (2026-10-26)
 

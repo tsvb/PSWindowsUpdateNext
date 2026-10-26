@@ -17,9 +17,3 @@ dotnet_diagnostic.CA5386.severity = none
 [**/WUFileVerifier.cs]
 dotnet_diagnostic.CA5350.severity = none
 
-# CA5394 (insecure Random) in SetPSWUSettings: the two Random(seed) calls derive the key that
-# EncryptString/DecryptString use for the stored SMTP credential, seeded from the current UTC minute so a
-# value written in one minute can be read in the next. That is obfuscation, not encryption, and replacing
-# it changes the stored format. Suppressed so the build can gate on everything else; see the changelog.
-[**/SetPSWUSettings.cs]
-dotnet_diagnostic.CA5394.severity = none
