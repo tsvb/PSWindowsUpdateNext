@@ -17,7 +17,17 @@
     <Authors>Michal Gajda; tsvb</Authors>
     <Copyright>Copyright (c) 2011-2023 Michal Gajda. Modifications copyright (c) 2026 tsvb. MIT License.</Copyright>
     <Description>Cmdlets to manage the Windows Update client. Community-maintained continuation of PSWindowsUpdate.</Description>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Static analysis. Per-rule severities live in the root .editorconfig;
+         AnalysisLevel is pinned so a newer SDK cannot add rules and break the build without a code change. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>8.0</AnalysisLevel>
+    <!-- Default mode: the rules Microsoft enables as build warnings because they find defects. On top of that,
+         every security rule (CA2xxx/CA3xxx/CA5xxx) is enabled, because this module handles credentials, runs
+         as SYSTEM, calls native APIs, and downloads and verifies files. The design, naming, globalization and
+         performance categories stay off: on code recovered from a DLL they report style, not defects. -->
+    <AnalysisMode>Default</AnalysisMode>
+    <AnalysisModeSecurity>All</AnalysisModeSecurity>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- CS1591: missing XML doc on public member (COM interop types). CA1416: platform check noise, the module is Windows-only by design. -->
     <NoWarn>$(NoWarn);CS1591;CA1416;SYSLIB0014</NoWarn>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>

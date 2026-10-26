@@ -1,0 +1,25 @@
+# Root EditorConfig. It exists to carry the .NET analyzer severities for src/PSWindowsUpdateNext;
+# the analysis mode itself (AnalysisMode, AnalysisModeSecurity, TreatWarningsAsErrors) is in the csproj.
+root = true
+
+[*.cs]
+
+# CA5386 (do not hardcode SecurityProtocolType): the static constructor of WUTools only ORs TLS 1.2 and
+# 1.3 into the existing ServicePointManager.SecurityProtocol on .NET Framework. It never narrows what the
+# host allows, and Windows PowerShell 5.1 hosts can start with TLS 1.0 only, which Microsoft Update and the
+# Catalog reject. Reconsider if net472 support is dropped.
+dotnet_diagnostic.CA5386.severity = none
+
+# CA5350 (weak algorithm SHA1) in WUFileVerifier.Sha1Base64: the Microsoft Update Catalog publishes SHA-1
+# digests, so SHA-1 is the only way to compare against them. It detects corruption of a download in
+# transit. Authenticity is checked separately by the Authenticode signature (SHA-256 chain to a Microsoft
+# root), and Sha256Hex is the digest used for anything the module itself records.
+[**/WUFileVerifier.cs]
+dotnet_diagnostic.CA5350.severity = none
+
+# CA5394 (insecure Random) in SetPSWUSettings: the two Random(seed) calls derive the key that
+# EncryptString/DecryptString use for the stored SMTP credential, seeded from the current UTC minute so a
+# value written in one minute can be read in the next. That is obfuscation, not encryption, and replacing
+# it changes the stored format. Suppressed so the build can gate on everything else; see the changelog.
+[**/SetPSWUSettings.cs]
+dotnet_diagnostic.CA5394.severity = none

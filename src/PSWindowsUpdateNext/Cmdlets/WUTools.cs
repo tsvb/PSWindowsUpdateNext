@@ -1031,7 +1031,6 @@ public class WUTools : PSCmdlet
 	/// <param name="Size">Size in bytes</param>
 	public string ConvertSize(decimal Size)
 	{
-		string text = "";
 		if (Math.Round(Size, 0) < 1024m)
 		{
 			return Math.Round(Size, 0) + "B";
