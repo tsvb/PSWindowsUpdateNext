@@ -23,6 +23,12 @@
 - Internal only, no change in behavior: the Catalog parsing and download host check moved out of `Get-WUOfflineMSU` into an internal `MsuCatalogParser` class, and the `Invoke-WUJob` argument builder into `WUJobCommandLine`, so they can be tested.
 
 ### Fixed
+- `Get-WUJob -ClearExpired` was inverted: a plain `Get-WUJob` deleted expired jobs, and `-ClearExpired` skipped the clean-up. It now deletes them only with `-ClearExpired` or through `Clear-WUJob`, and a job whose end boundary cannot be read no longer stops the clean-up for the whole computer.
+- `Set-WUSettings -ScheduledInstallDay` threw for Saturday, because the accepted value `EverySaturday` had no matching entry. `Every Saturday` is now accepted, `EverySaturday` still works, and all four value lists match case-insensitively like their `ValidateSet`.
+- `Set-WUSettings -TargetGroup` read a value named by a line break instead of `TargetGroup`, so it reported no current value and rewrote the setting on every run.
+- `Enable-WURemoting` no longer loosens remoting security without being asked. Whenever TrustedHosts did not already contain `*` (in practice, on the first run), it set `LocalAccountTokenFilterPolicy=1` and `ForceGuest=0` and added `*` to TrustedHosts, and it never actually enabled remoting because of a typo (`Enable -PSRemoting`). It now runs `Enable-PSRemoting -Force` in Windows PowerShell, which configures the endpoint the module's remoting uses (adding `-SkipNetworkProfileCheck` with `-WinRMPublic`), and reports its errors. The two registry values are set only with `-LocalAccountTokenFilterPolicy`; otherwise the token filter value that `Enable-PSRemoting` sets on computers outside a domain is restored. TrustedHosts is left alone.
+- `Reset-WUComponents` passed `%SystemRoot%\<name>.dll` to regsvr32, but the DLLs live in System32, so step 6 registered nothing. It now uses the System32 path and skips DLLs that current Windows versions no longer ship.
+- The desktop console passed install days without spaces (`EveryMonday`), which `Set-WUSettings` rejects, so only Saturday could be set. It now passes the accepted values.
 - Removed the three compiler warnings (each reported once per target): an ignored attribute in `INetFwPolicy2`, an unused variable in `ConvertSize`, and a `catch` that only rethrew in `WUCimSession.InstallUpdates`.
 
 ### Tests
