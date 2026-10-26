@@ -386,6 +386,7 @@ public class GetWUOfflineMSU : PSCmdlet
 						break;
 					}
 					string expectedDigest = file.Properties["Digest"].Value as string;
+					bool digestVerified = false;
 					if (!string.IsNullOrEmpty(expectedDigest))
 					{
 						string actualDigest = WUFileVerifier.Sha1Base64(target);
@@ -396,12 +397,28 @@ public class GetWUOfflineMSU : PSCmdlet
 							downloadResult = "Error";
 							break;
 						}
+						digestVerified = true;
 						WriteVerbose(Path.GetFileName(target) + ": digest OK");
 					}
-					int trust = WUFileVerifier.VerifyAuthenticode(target);
-					if (trust != 0)
+					WUSignatureResult signature = WUFileVerifier.VerifyAuthenticode(target);
+					// Revocation that cannot be checked (offline, proxy) is tolerated only when the file already
+					// matched the digest the Catalog served over HTTPS; without that digest it counts as a failure.
+					bool revocationTolerated = signature.Status == WUSignatureStatus.RevocationUnknown && digestVerified;
+					if (signature.IsValid)
 					{
-						string message = target + ": Authenticode verification failed (0x" + trust.ToString("X8") + ").";
+						WriteVerbose(Path.GetFileName(target) + ": Authenticode signature OK, " + signature.Message);
+					}
+					else if (revocationTolerated)
+					{
+						WriteWarning(target + ": " + signature.Message + " Kept because the file matched the SHA-1 digest published by the Catalog.");
+					}
+					else
+					{
+						string message = target + ": Authenticode verification failed [" + signature.Status + "]: " + signature.Message;
+						if (signature.Status == WUSignatureStatus.RevocationUnknown)
+						{
+							message += " The Catalog published no digest for this file, so the unchecked revocation status is not covered by a digest match.";
+						}
 						if ((bool)SkipSignatureCheck)
 						{
 							WriteWarning(message + " Kept because -SkipSignatureCheck was given.");
@@ -414,10 +431,8 @@ public class GetWUOfflineMSU : PSCmdlet
 							break;
 						}
 					}
-					else
-					{
-						WriteVerbose(Path.GetFileName(target) + ": Authenticode signature OK");
-					}
+					file.Properties.Add(new PSNoteProperty("SignatureStatus", signature.Status.ToString()));
+					file.Properties.Add(new PSNoteProperty("SignerSubject", signature.SignerSubject));
 					file.Properties.Add(new PSNoteProperty("Path", target));
 					file.Properties.Add(new PSNoteProperty("Sha256", WUFileVerifier.Sha256Hex(target)));
 				}
