@@ -269,15 +269,38 @@ public class GetWUJob : PSCmdlet
 					num2++;
 				}
 				WriteVerbose("Found " + num2 + " tasks");
-				if (MyInvocation.BoundParameters.ContainsKey("ClearExpired"))
+				// Delete expired jobs only when asked: -ClearExpired, or the Clear-WUJob alias, which sets the
+				// switch in CoreProcessing. The check reads the property, not BoundParameters, so the alias works.
+				if (!ClearExpired.IsPresent)
 				{
 					continue;
 				}
 				IRegisteredTaskCollection tasks2 = folder.GetTasks(1);
 				foreach (IRegisteredTask item2 in tasks2)
 				{
-					if (item2.Definition.RegistrationInfo.Source == "PSWindowsUpdateNext" && DateTime.Parse(item2.Definition.Triggers[1].EndBoundary) < DateTime.Now && item2.State != _TASK_STATE.TASK_STATE_RUNNING && ShouldProcess(text, "Clear expired task: " + item2.Name))
+					if (item2.Definition.RegistrationInfo.Source != "PSWindowsUpdateNext" || item2.State == _TASK_STATE.TASK_STATE_RUNNING)
 					{
+						continue;
+					}
+					// Task Scheduler collections are 1-based. A job whose first trigger or end boundary cannot be
+					// read never expires; skip it instead of failing the whole computer.
+					string endBoundaryText;
+					try
+					{
+						endBoundaryText = item2.Definition.Triggers[1].EndBoundary;
+					}
+					catch (Exception triggerError)
+					{
+						WriteDebug(DateTime.Now.ToString() + " " + text + ": " + item2.Name + " has no readable trigger: " + triggerError.Message);
+						continue;
+					}
+					if (!DateTime.TryParse(endBoundaryText, out DateTime endBoundary) || endBoundary >= DateTime.Now)
+					{
+						continue;
+					}
+					if (ShouldProcess(text, "Clear expired task: " + item2.Name))
+					{
+						WriteVerbose(text + ": Clear expired task " + item2.Name);
 						folder.DeleteTask(item2.Name, 0);
 					}
 				}

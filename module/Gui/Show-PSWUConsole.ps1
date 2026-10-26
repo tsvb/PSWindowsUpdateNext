@@ -637,7 +637,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $p = @{}
         $p.NoAutoUpdate = [bool]$ui.SwNoAutoUpdate.IsChecked
         if ($ui.CmbAUOptions.SelectedIndex -gt 0) { $p.NotificationLevel = @('', 'Notify before download', 'Notify before installation', 'Scheduled installation', 'Users configure')[$ui.CmbAUOptions.SelectedIndex] }
-        if ($ui.CmbInstallDay.SelectedIndex -gt 0) { $p.ScheduledInstallDay = @('', 'EveryDay', 'EverySunday', 'EveryMonday', 'EveryTuesday', 'EveryWednesday', 'EveryThursday', 'EveryFriday', 'EverySaturday')[$ui.CmbInstallDay.SelectedIndex] }
+        if ($ui.CmbInstallDay.SelectedIndex -gt 0) { $p.ScheduledInstallDay = @('', 'Every Day', 'Every Sunday', 'Every Monday', 'Every Tuesday', 'Every Wednesday', 'Every Thursday', 'Every Friday', 'Every Saturday')[$ui.CmbInstallDay.SelectedIndex] }
         if ($ui.TxtInstallHour.Text -match '^\d{1,2}$') { $p.ScheduledInstallTime = [int]$ui.TxtInstallHour.Text }
         if ($ui.SwTargetRelease.IsChecked) {
             $p.TargetReleaseVersion = $true

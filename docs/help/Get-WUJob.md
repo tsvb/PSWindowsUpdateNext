@@ -61,7 +61,7 @@ Get-WUJob -TaskName PSWindowsUpdateNext_History
 
 ### -ClearExpired
 
-Selects the expired-job clean-up. See the notes for how the current release handles this switch.
+After listing the jobs, deletes the module's jobs whose trigger end boundary has passed and that are not running. The Clear-WUJob alias turns this switch on.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -250,7 +250,7 @@ An object that wraps the IRegisteredTask COM object and adds ComputerName and St
 
 ## NOTES
 
-After it lists the jobs, the cmdlet deletes the module's jobs whose trigger end boundary has passed and that are not running. In the current release this clean-up is skipped when -ClearExpired is bound explicitly and runs otherwise, including when you call the Clear-WUJob alias. The deletion honors -WhatIf and -Confirm. The cmdlet writes a warning when the session is not elevated.
+After it lists the jobs, the cmdlet deletes the module's jobs whose trigger end boundary has passed and that are not running. This clean-up runs only with -ClearExpired or when you call the Clear-WUJob alias. Jobs whose end boundary cannot be read are left in place. Earlier releases inverted the switch and cleaned up only when it was not given. The deletion honors -WhatIf and -Confirm. The cmdlet writes a warning when the session is not elevated.
 
 ## RELATED LINKS
 
