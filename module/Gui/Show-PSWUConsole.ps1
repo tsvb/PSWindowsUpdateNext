@@ -1,4 +1,4 @@
-# Captured when the module dot-sources this file; $PSScriptRoot is empty inside the function at call time.
+﻿# Captured when the module dot-sources this file; $PSScriptRoot is empty inside the function at call time.
 $script:PSWUGuiDir = $PSScriptRoot
 
 function Show-PSWUConsole {
@@ -152,13 +152,13 @@ $script:PSWUConsoleBody = {
         if ($ui.PageLog.Visibility -eq 'Visible') { $ui.LogScroll.ScrollToEnd() }
     }
 
-    function Set-Status {
+    function Write-Status {
         param([string]$Text, [string]$Color = 'B.Success')
         $ui.TxtStatus.Text = $Text
         $ui.DotStatus.Fill = $window.FindResource($Color)
     }
 
-    function Set-Busy {
+    function Show-BusyState {
         param([bool]$Busy, [string]$TaskName)
         $ui.BusyBar.Visibility = if ($Busy) { 'Visible' } else { 'Hidden' }
         foreach ($n in 'BtnScan', 'BtnDashScan', 'BtnDashInstallAll', 'BtnDashReboot', 'BtnDownload', 'BtnInstall', 'BtnHide', 'BtnUnhide',
@@ -166,7 +166,7 @@ $script:PSWUConsoleBody = {
                        'BtnCatalogSearch', 'BtnCatalogDownload', 'BtnJobsRefresh', 'BtnJobsClear', 'BtnJobCreate') {
             $ui[$n].IsEnabled = -not $Busy
         }
-        if ($Busy) { Set-Status -Text $TaskName -Color 'B.Accent' } else { Set-Status -Text 'Ready'; $ui.TxtProgress.Text = '' }
+        if ($Busy) { Write-Status -Text $TaskName -Color 'B.Accent' } else { Write-Status -Text 'Ready'; $ui.TxtProgress.Text = '' }
     }
 
     function Show-Message {
@@ -192,7 +192,7 @@ $script:PSWUConsoleBody = {
     $runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($iss)
     $runspace.Open()
 
-    function Start-Task {
+    function Invoke-ConsoleTask {
         param([string]$Name, [string]$Script, [hashtable]$Params = @{}, [scriptblock]$OnDone)
         $job = @{ Name = $Name; Script = $Script; Params = $Params; OnDone = $OnDone }
         if ($state.Task) { $state.Queue.Enqueue($job); return }
@@ -209,10 +209,10 @@ $script:PSWUConsoleBody = {
         $handle = $ps.BeginInvoke([System.Management.Automation.PSDataCollection[psobject]](New-Object 'System.Management.Automation.PSDataCollection[psobject]'), $output)
         $state.Task = @{ PS = $ps; Handle = $handle; Output = $output; Job = $Job; Idx = @{ V = 0; W = 0; E = 0; I = 0; D = 0 } }
         Add-Log -Level 'task' -Message ">> $($Job.Name)"
-        Set-Busy -Busy $true -TaskName $Job.Name
+        Show-BusyState -Busy $true -TaskName $Job.Name
     }
 
-    function Drain-Streams {
+    function Receive-TaskStream {
         $t = $state.Task
         if (-not $t) { return }
         $s = $t.PS.Streams
@@ -235,13 +235,13 @@ $script:PSWUConsoleBody = {
     $timer.Add_Tick({
         $t = $state.Task
         if (-not $t) { return }
-        try { Drain-Streams } catch { Add-Log 'error' "Stream read failed: $($_.Exception.Message) at $($_.ScriptStackTrace)" }
+        try { Receive-TaskStream } catch { Add-Log 'error' "Stream read failed: $($_.Exception.Message) at $($_.ScriptStackTrace)" }
         if (-not $t.Handle.IsCompleted) { return }
         try {
             Complete-Task $t
         } catch {
             $state.Task = $null
-            Set-Busy -Busy $false
+            Show-BusyState -Busy $false
             Add-Log 'error' "Task completion failed: $($_.Exception.Message) at $($_.ScriptStackTrace)"
         }
     })
@@ -255,13 +255,13 @@ $script:PSWUConsoleBody = {
             $errors += $_
             Add-Log 'error' $_.Exception.Message
         }
-        Drain-Streams
+        Receive-TaskStream
         $errors += @($t.PS.Streams.Error)
         $result = @($t.Output)
         $t.PS.Dispose()
         $state.Task = $null
         Add-Log 'ok' "<< $($t.Job.Name) ($($result.Count) objects, $($errors.Count) errors)"
-        Set-Busy -Busy $false
+        Show-BusyState -Busy $false
         if ($t.Job.OnDone) {
             try { & $t.Job.OnDone $result $errors } catch { Add-Log 'error' "UI handler failed: $($_.Exception.Message)" }
         }
@@ -280,10 +280,10 @@ $script:PSWUConsoleBody = {
         if (-not $state.Loaded[$Nav]) {
             $state.Loaded[$Nav] = $true
             switch ($Nav) {
-                'NavHistory'  { Load-History }
-                'NavServices' { Load-Services }
-                'NavSettings' { Load-Settings }
-                'NavJobs'     { Load-Jobs }
+                'NavHistory'  { Show-HistoryPage }
+                'NavServices' { Show-ServicePage }
+                'NavSettings' { Show-SettingPage }
+                'NavJobs'     { Show-JobPage }
             }
         }
     }
@@ -333,8 +333,8 @@ try {
 [pscustomobject]$o
 '@
 
-    function Load-Dashboard {
-        Start-Task -Name 'Reading Windows Update status' -Script $dashboardScript -OnDone {
+    function Show-DashboardPage {
+        Invoke-ConsoleTask -Name 'Reading Windows Update status' -Script $dashboardScript -OnDone {
             param($result, $errors)
             $d = $result | Select-Object -First 1
             if (-not $d) { return }
@@ -364,13 +364,13 @@ try {
             $rows = @($d.Settings | ForEach-Object { $s = New-Object PSWindowsUpdateNext.Gui.SettingRow; $s.Name = $_.Name; $s.Value = $_.Value; $s })
             $ui.ListDashSettings.ItemsSource = @($rows | Select-Object -First 10)
             $ui.TxtDashSettingsEmpty.Visibility = if ($rows.Count) { 'Collapsed' } else { 'Visible' }
-            if (-not $state.Loaded.NavSettings) { Apply-SettingsRows $rows; $state.Loaded.NavSettings = $true }
-            Apply-HistoryFilter
+            if (-not $state.Loaded.NavSettings) { Show-SettingList $rows; $state.Loaded.NavSettings = $true }
+            Show-HistoryList
             $state.Loaded.NavHistory = $true
         }
     }
 
-    $ui.BtnDashScan.Add_Click({ $ui.NavUpdates.IsChecked = $true; Start-Scan })
+    $ui.BtnDashScan.Add_Click({ $ui.NavUpdates.IsChecked = $true; Invoke-UpdateScan })
     $ui.BtnDashHistoryAll.Add_Click({ $ui.NavHistory.IsChecked = $true })
     $ui.BtnDashInstallAll.Add_Click({
         if (-not (Test-Elevated)) { return }
@@ -381,7 +381,7 @@ try {
     $ui.BtnDashReboot.Add_Click({
         if (-not (Test-Elevated)) { return }
         if (Confirm-Action -Text 'Restart this computer now? Unsaved work in other programs will be lost.' -Title 'Reboot') {
-            Start-Task -Name 'Restarting computer' -Script 'Get-WURebootStatus -AutoReboot -Confirm:$false -WarningAction SilentlyContinue | Out-Null'
+            Invoke-ConsoleTask -Name 'Restarting computer' -Script 'Get-WURebootStatus -AutoReboot -Confirm:$false -WarningAction SilentlyContinue | Out-Null'
         }
     })
 
@@ -435,12 +435,12 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         switch ($ui.CmbSource.SelectedIndex) { 1 { 'MicrosoftUpdate' } 2 { 'WindowsUpdate' } default { 'Default' } }
     }
 
-    function Start-Scan {
+    function Invoke-UpdateScan {
         if (-not (Test-Elevated)) { return }
-        $args = @{ Source = (Get-Source); WithHidden = [bool]$ui.ChipHidden.IsChecked; Installed = [bool]$ui.ChipInstalled.IsChecked }
-        $state.LastScanArgs = $args
+        $scanArgs = @{ Source = (Get-Source); WithHidden = [bool]$ui.ChipHidden.IsChecked; Installed = [bool]$ui.ChipInstalled.IsChecked }
+        $state.LastScanArgs = $scanArgs
         $ui.TxtUpdatesEmpty.Text = 'Scanning…'
-        Start-Task -Name "Scanning ($($args.Source))" -Script $scanScript -Params $args -OnDone {
+        Invoke-ConsoleTask -Name "Scanning ($($scanArgs.Source))" -Script $scanScript -Params $scanArgs -OnDone {
             param($result, $errors)
             $state.AllUpdates = @($result | ForEach-Object {
                 $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
@@ -448,7 +448,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
                     $r.$p = $_.$p
                 }
                 $r })
-            Apply-UpdateFilter
+            Show-UpdateList
             $pending = @($state.AllUpdates | Where-Object { -not $_.IsInstalled -and -not $_.IsHidden })
             $ui.MetricPending.Text = $pending.Count
             $ui.MetricPendingSub.Text = "$([math]::Round(($pending | Measure-Object SizeBytes -Sum).Sum / 1MB)) MB to download"
@@ -463,7 +463,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         }
     }
 
-    function Apply-UpdateFilter {
+    function Show-UpdateList {
         $text = $ui.TxtUpdateFilter.Text
         $rows = $state.AllUpdates
         if ($ui.ChipRebootOnly.IsChecked) { $rows = @($rows | Where-Object RebootRequired) }
@@ -472,25 +472,25 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $ui.TxtUpdatesEmpty.Visibility = if ($rows.Count) { 'Collapsed' } else { 'Visible' }
     }
 
-    function Get-SelectedUpdates { @($state.AllUpdates | Where-Object Selected) }
+    function Get-SelectedUpdate { @($state.AllUpdates | Where-Object Selected) }
 
     function Invoke-UpdateAction {
         param([string]$Action, [switch]$All)
         if (-not (Test-Elevated)) { return }
         $ids = @()
         if (-not $All) {
-            $ids = @((Get-SelectedUpdates).UpdateID)
+            $ids = @((Get-SelectedUpdate).UpdateID)
             if (-not $ids.Count) { Show-Message -Text 'Select at least one update first.' -Icon 'Warning'; return }
         }
         $verb = switch ($Action) { 'Install' { 'install' } 'Download' { 'download' } 'Hide' { 'hide' } 'Unhide' { 'unhide' } }
         $what = if ($All) { 'all available updates' } else { "$($ids.Count) selected update(s)" }
         if ($Action -in 'Install', 'Hide' -and -not (Confirm-Action -Text "Really $verb $what?")) { return }
         $params = @{ Action = $Action; UpdateID = $ids; Source = (Get-Source); AutoReboot = [bool]$ui.SwAutoReboot.IsChecked }
-        Start-Task -Name "$Action $what" -Script $actionScript -Params $params -OnDone {
+        Invoke-ConsoleTask -Name "$Action $what" -Script $actionScript -Params $params -OnDone {
             param($result, $errors)
             foreach ($r in $result) { Add-Log 'info' "$($r.Status)  $($r.KB)  $($r.Title)  ->  $($r.Result)" }
-            if ($state.LastScanArgs) { Start-Task -Name 'Rescanning' -Script $scanScript -Params $state.LastScanArgs -OnDone $state.RescanDone }
-            else { Start-Scan }
+            if ($state.LastScanArgs) { Invoke-ConsoleTask -Name 'Rescanning' -Script $scanScript -Params $state.LastScanArgs -OnDone $state.RescanDone }
+            else { Invoke-UpdateScan }
         }
     }
     # Reuse the scan completion handler for rescans after an action.
@@ -500,23 +500,23 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
             $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
             foreach ($p in 'KB','Title','Size','SizeBytes','Status','UpdateID','IsHidden','IsDownloaded','IsInstalled','RebootRequired','Category','Severity','Description','MoreInfoUrl','Published') { $r.$p = $_.$p }
             $r })
-        Apply-UpdateFilter
+        Show-UpdateList
         $pending = @($state.AllUpdates | Where-Object { -not $_.IsInstalled -and -not $_.IsHidden })
         $ui.MetricPending.Text = $pending.Count
         $ui.MetricDownloaded.Text = @($pending | Where-Object IsDownloaded).Count
         $ui.MetricHidden.Text = @($state.AllUpdates | Where-Object IsHidden).Count
-        Load-Dashboard
+        Show-DashboardPage
     }
 
-    $ui.BtnScan.Add_Click({ Start-Scan })
+    $ui.BtnScan.Add_Click({ Invoke-UpdateScan })
     $ui.BtnInstall.Add_Click({ Invoke-UpdateAction -Action 'Install' })
     $ui.BtnDownload.Add_Click({ Invoke-UpdateAction -Action 'Download' })
     $ui.BtnHide.Add_Click({ Invoke-UpdateAction -Action 'Hide' })
     $ui.BtnUnhide.Add_Click({ Invoke-UpdateAction -Action 'Unhide' })
-    $ui.TxtUpdateFilter.Add_TextChanged({ Apply-UpdateFilter })
-    $ui.ChipRebootOnly.Add_Click({ Apply-UpdateFilter })
-    $ui.ChipHidden.Add_Click({ if ($state.AllUpdates.Count) { Start-Scan } })
-    $ui.ChipInstalled.Add_Click({ if ($state.AllUpdates.Count) { Start-Scan } })
+    $ui.TxtUpdateFilter.Add_TextChanged({ Show-UpdateList })
+    $ui.ChipRebootOnly.Add_Click({ Show-UpdateList })
+    $ui.ChipHidden.Add_Click({ if ($state.AllUpdates.Count) { Invoke-UpdateScan } })
+    $ui.ChipInstalled.Add_Click({ if ($state.AllUpdates.Count) { Invoke-UpdateScan } })
     $ui.ChkSelectAll.Add_Click({
         $on = [bool]$ui.ChkSelectAll.IsChecked
         foreach ($r in @($ui.ListUpdates.ItemsSource)) { $r.Selected = $on }
@@ -550,31 +550,31 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     $ui.BtnMoreInfo.Add_Click({ if ($state.Detail.MoreInfoUrl) { Start-Process $state.Detail.MoreInfoUrl } })
 
     # ---------- history ----------
-    function Load-History {
+    function Show-HistoryPage {
         $count = @(25, 50, 100, 250, 1000)[$ui.CmbHistoryCount.SelectedIndex]
-        Start-Task -Name "Reading history (last $count)" -Script 'param([int]$Last) Get-WUHistory -Last $Last -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Date = $_.Date; Title = "$($_.Title)"; KB = "$($_.KB)"; Result = "$($_.Result)"; Operation = "$($_.OperationName)" } }' -Params @{ Last = $count } -OnDone {
+        Invoke-ConsoleTask -Name "Reading history (last $count)" -Script 'param([int]$Last) Get-WUHistory -Last $Last -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Date = $_.Date; Title = "$($_.Title)"; KB = "$($_.KB)"; Result = "$($_.Result)"; Operation = "$($_.OperationName)" } }' -Params @{ Last = $count } -OnDone {
             param($result, $errors)
             $state.History = @($result | ForEach-Object {
                 $r = New-Object PSWindowsUpdateNext.Gui.HistoryRow
                 $r.Date = $_.Date; $r.Title = $_.Title; $r.KB = $_.KB; $r.Result = $_.Result; $r.Operation = $_.Operation
                 $r })
-            Apply-HistoryFilter
+            Show-HistoryList
         }
     }
-    function Apply-HistoryFilter {
+    function Show-HistoryList {
         $text = $ui.TxtHistoryFilter.Text
         $rows = $state.History
         if ($text) { $rows = @($rows | Where-Object { $_.Title -like "*$text*" -or $_.KB -like "*$text*" }) }
         $ui.ListHistory.ItemsSource = @($rows)
         $ui.TxtHistorySub.Text = "$($rows.Count) entries"
     }
-    $ui.BtnHistoryRefresh.Add_Click({ Load-History })
-    $ui.CmbHistoryCount.Add_SelectionChanged({ if ($state.Loaded.NavHistory) { Load-History } })
-    $ui.TxtHistoryFilter.Add_TextChanged({ Apply-HistoryFilter })
+    $ui.BtnHistoryRefresh.Add_Click({ Show-HistoryPage })
+    $ui.CmbHistoryCount.Add_SelectionChanged({ if ($state.Loaded.NavHistory) { Show-HistoryPage } })
+    $ui.TxtHistoryFilter.Add_TextChanged({ Show-HistoryList })
 
     # ---------- services ----------
-    function Load-Services {
-        Start-Task -Name 'Reading update services' -Script 'Get-WUServiceManager -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Name = "$($_.Name)"; ServiceID = "$($_.ServiceID)"; IsDefault = [bool]$_.IsDefaultAUService; IsManaged = [bool]$_.IsManaged; ServiceUrl = "$($_.ServiceUrl)" } }' -OnDone {
+    function Show-ServicePage {
+        Invoke-ConsoleTask -Name 'Reading update services' -Script 'Get-WUServiceManager -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Name = "$($_.Name)"; ServiceID = "$($_.ServiceID)"; IsDefault = [bool]$_.IsDefaultAUService; IsManaged = [bool]$_.IsManaged; ServiceUrl = "$($_.ServiceUrl)" } }' -OnDone {
             param($result, $errors)
             $ui.ListServices.ItemsSource = @($result | ForEach-Object {
                 $r = New-Object PSWindowsUpdateNext.Gui.ServiceRow
@@ -582,10 +582,10 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
                 $r })
         }
     }
-    $ui.BtnServicesRefresh.Add_Click({ Load-Services })
+    $ui.BtnServicesRefresh.Add_Click({ Show-ServicePage })
     $ui.BtnAddMicrosoftUpdate.Add_Click({
         if (-not (Test-Elevated)) { return }
-        Start-Task -Name 'Registering Microsoft Update' -Script 'Add-WUServiceManager -MicrosoftUpdate -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -OnDone { Load-Services }
+        Invoke-ConsoleTask -Name 'Registering Microsoft Update' -Script 'Add-WUServiceManager -MicrosoftUpdate -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -OnDone { Show-ServicePage }
     })
     $ui.ListServices.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler]{
         param($s, $e)
@@ -594,13 +594,13 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
             if (-not (Test-Elevated)) { return }
             $row = $btn.DataContext
             if (Confirm-Action -Text "Unregister '$($row.Name)' ($($row.ServiceID))?") {
-                Start-Task -Name "Removing service $($row.Name)" -Script 'param([string]$Id) Remove-WUServiceManager -ServiceID $Id -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -Params @{ Id = $row.ServiceID } -OnDone { Load-Services }
+                Invoke-ConsoleTask -Name "Removing service $($row.Name)" -Script 'param([string]$Id) Remove-WUServiceManager -ServiceID $Id -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -Params @{ Id = $row.ServiceID } -OnDone { Show-ServicePage }
             }
         }
     })
 
     # ---------- settings ----------
-    function Apply-SettingsRows {
+    function Show-SettingList {
         param($Rows)
         $ui.ListSettings.ItemsSource = @($Rows)
         $ui.TxtSettingsEmpty.Visibility = if ($Rows.Count) { 'Collapsed' } else { 'Visible' }
@@ -616,13 +616,13 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $ui.CmbAUOptions.SelectedIndex = 0
         $ui.CmbInstallDay.SelectedIndex = 0
     }
-    function Load-Settings {
-        Start-Task -Name 'Reading client policy' -Script '$s = Get-WUSettings -WarningAction SilentlyContinue -ErrorAction Stop; if ($s) { $s.PSObject.Properties | Where-Object { $_.Name -notin "ComputerName","CmdletStart","CmdletEnd","CmdletLine" } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Value = "$($_.Value)" } } }' -OnDone {
+    function Show-SettingPage {
+        Invoke-ConsoleTask -Name 'Reading client policy' -Script '$s = Get-WUSettings -WarningAction SilentlyContinue -ErrorAction Stop; if ($s) { $s.PSObject.Properties | Where-Object { $_.Name -notin "ComputerName","CmdletStart","CmdletEnd","CmdletLine" } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Value = "$($_.Value)" } } }' -OnDone {
             param($result, $errors)
-            Apply-SettingsRows @($result | ForEach-Object { $s = New-Object PSWindowsUpdateNext.Gui.SettingRow; $s.Name = $_.Name; $s.Value = $_.Value; $s })
+            Show-SettingList @($result | ForEach-Object { $s = New-Object PSWindowsUpdateNext.Gui.SettingRow; $s.Name = $_.Name; $s.Value = $_.Value; $s })
         }
     }
-    $ui.BtnSettingsRefresh.Add_Click({ Load-Settings })
+    $ui.BtnSettingsRefresh.Add_Click({ Show-SettingPage })
     $ui.BtnApplySettings.Add_Click({
         if (-not (Test-Elevated)) { return }
         $p = @{}
@@ -641,7 +641,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         if ($ui.TxtDeferFeature.Text -match '^\d+$') { $p.DeferFeatureUpdatesPeriodInDays = [int]$ui.TxtDeferFeature.Text }
         $summary = ($p.GetEnumerator() | ForEach-Object { "$($_.Key) = $($_.Value)" }) -join "`n"
         if (-not (Confirm-Action -Text "Write these policy values?`n`n$summary")) { return }
-        Start-Task -Name 'Writing client policy' -Script 'param([hashtable]$P) Set-WUSettings @P -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -Params @{ P = $p } -OnDone { Load-Settings; Load-Dashboard }
+        Invoke-ConsoleTask -Name 'Writing client policy' -Script 'param([hashtable]$P) Set-WUSettings @P -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -Params @{ P = $p } -OnDone { Show-SettingPage; Show-DashboardPage }
     })
 
     # ---------- catalog ----------
@@ -663,7 +663,7 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
         $state.Catalog.Clear()
         $ui.TxtCatalogEmpty.Text = 'Searching the Catalog…'
         $ui.TxtCatalogEmpty.Visibility = 'Visible'
-        Start-Task -Name "Searching Catalog for $kb" -Script $catalogSearchScript -Params @{ KB = $kb; Destination = $ui.TxtCatalogDest.Text } -OnDone {
+        Invoke-ConsoleTask -Name "Searching Catalog for $kb" -Script $catalogSearchScript -Params @{ KB = $kb; Destination = $ui.TxtCatalogDest.Text } -OnDone {
             param($result, $errors)
             foreach ($r in ($result | Sort-Object Title)) {
                 $row = New-Object PSWindowsUpdateNext.Gui.CatalogRow
@@ -690,7 +690,7 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
         if (-not (Confirm-Action -Text "Download $($sel.Count) package(s), about $total MB, to`n$($ui.TxtCatalogDest.Text)?")) { return }
         foreach ($r in $sel) { $r.Result = 'Accepted' }
         $params = @{ KB = $ui.TxtCatalogKB.Text.Trim(); Destination = $ui.TxtCatalogDest.Text; UpdateID = @($sel.Identity); SkipSignature = [bool]$ui.SwSkipSignature.IsChecked }
-        Start-Task -Name "Downloading $($sel.Count) package(s)" -Script $catalogDownloadScript -Params $params -OnDone {
+        Invoke-ConsoleTask -Name "Downloading $($sel.Count) package(s)" -Script $catalogDownloadScript -Params $params -OnDone {
             param($result, $errors)
             foreach ($r in $result) {
                 $row = $state.Catalog | Where-Object Identity -eq $r.Identity | Select-Object -First 1
@@ -701,8 +701,8 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
     })
 
     # ---------- jobs ----------
-    function Load-Jobs {
-        Start-Task -Name 'Reading scheduled jobs' -Script 'Get-WUJob -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Name = "$($_.Name)"; State = "$($_.StateName)"; LastRun = "$($_.LastRunTime)"; NextRun = "$($_.NextRunTime)"; Description = "$($_.Definition.RegistrationInfo.Description)" } }' -OnDone {
+    function Show-JobPage {
+        Invoke-ConsoleTask -Name 'Reading scheduled jobs' -Script 'Get-WUJob -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Name = "$($_.Name)"; State = "$($_.StateName)"; LastRun = "$($_.LastRunTime)"; NextRun = "$($_.NextRunTime)"; Description = "$($_.Definition.RegistrationInfo.Description)" } }' -OnDone {
             param($result, $errors)
             $rows = @($result | ForEach-Object { $j = New-Object PSWindowsUpdateNext.Gui.JobRow; $j.Name = $_.Name; $j.State = $_.State; $j.LastRun = $_.LastRun; $j.NextRun = $_.NextRun; $j.Description = $_.Description; $j })
             $ui.ListJobs.ItemsSource = $rows
@@ -710,10 +710,10 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
             $ui.TxtJobsEmpty.Visibility = if ($rows.Count) { 'Collapsed' } else { 'Visible' }
         }
     }
-    $ui.BtnJobsRefresh.Add_Click({ Load-Jobs })
+    $ui.BtnJobsRefresh.Add_Click({ Show-JobPage })
     $ui.BtnJobsClear.Add_Click({
         if (-not (Test-Elevated)) { return }
-        Start-Task -Name 'Clearing expired jobs' -Script 'Get-WUJob -ClearExpired -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -OnDone { Load-Jobs }
+        Invoke-ConsoleTask -Name 'Clearing expired jobs' -Script 'Get-WUJob -ClearExpired -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -OnDone { Show-JobPage }
     })
     $ui.CmbJobTrigger.Add_SelectionChanged({ $ui.TxtJobTime.IsEnabled = ($ui.CmbJobTrigger.SelectedIndex -eq 2); if ($ui.CmbJobTrigger.SelectedIndex -eq 2 -and -not $ui.TxtJobTime.Text) { $ui.TxtJobTime.Text = (Get-Date).AddHours(1).ToString('yyyy-MM-dd HH:mm') } })
     $ui.BtnJobCreate.Add_Click({
@@ -730,7 +730,7 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
             }
         }
         if (-not (Confirm-Action -Text "Register task '$name' to run as SYSTEM?`n`n$script")) { return }
-        Start-Task -Name "Creating job $name" -Script 'param([hashtable]$P) Invoke-WUJob @P -Confirm:$false -Force -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -Params @{ P = $p } -OnDone { Load-Jobs }
+        Invoke-ConsoleTask -Name "Creating job $name" -Script 'param([hashtable]$P) Invoke-WUJob @P -Confirm:$false -Force -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -Params @{ P = $p } -OnDone { Show-JobPage }
     })
 
     # ---------- log ----------
@@ -747,10 +747,10 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
     # ---------- lifecycle ----------
     $window.Add_Closed({
         $timer.Stop()
-        if ($state.Task) { try { $state.Task.PS.Stop(); $state.Task.PS.Dispose() } catch { } }
+        if ($state.Task) { try { $state.Task.PS.Stop(); $state.Task.PS.Dispose() } catch { Write-Verbose "Background task did not stop cleanly while the window closed: $($_.Exception.Message)" } }
         $runspace.Dispose()
     })
-    $window.Add_ContentRendered({ Load-Dashboard })
+    $window.Add_ContentRendered({ Show-DashboardPage })
 
     Add-Log 'info' "PSWindowsUpdateNext $moduleVersion console on $env:COMPUTERNAME ($($identity.Name), $(if ($isAdmin) { 'elevated' } else { 'not elevated' }))"
 
