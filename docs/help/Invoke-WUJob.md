@@ -211,7 +211,7 @@ HelpMessage: ''
 
 ### -Hidden
 
-Hides the task in Task Scheduler. It is hidden by default. Use -Hidden:$false to make it visible.
+Hides the task in Task Scheduler. The default is $true, so the task is hidden. Use -Hidden:$false to make it visible.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -253,7 +253,7 @@ HelpMessage: ''
 
 ### -Script
 
-Specifies the PowerShell script that the task runs. The script is encoded and passed to powershell.exe with -EncodedCommand.
+Specifies the PowerShell script that the task runs. The script is encoded and passed to powershell.exe with -EncodedCommand. The default is: ipmo PSWindowsUpdateNext; Get-WindowsUpdate -AcceptAll -Install | Out-File $Env:TEMP\PSWindowsUpdateNext.log
 
 ```yaml
 Type: System.String
@@ -274,7 +274,7 @@ HelpMessage: ''
 
 ### -TaskName
 
-Specifies the name of the scheduled task. A task with the same name is replaced. Get-WindowsUpdate and the other cmdlets that call this cmdlet use their own task names.
+Specifies the name of the scheduled task. A task with the same name is replaced. The default is 'PSWindowsUpdateNext'. Get-WindowsUpdate and the other cmdlets that call this cmdlet use their own task names.
 
 ```yaml
 Type: System.String
@@ -320,7 +320,7 @@ Runs the task once at this date and time. The value must be in the future.
 
 ```yaml
 Type: System.DateTime
-DefaultValue: 01.01.0001 00:00:00
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:

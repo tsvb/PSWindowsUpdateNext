@@ -246,7 +246,7 @@ HelpMessage: ''
 
 ### -SmtpPort
 
-Specifies the SMTP port and saves it in PSWUSettings.xml.
+Specifies the SMTP port and saves it in PSWUSettings.xml. The default is 25.
 
 ```yaml
 Type: System.Int32

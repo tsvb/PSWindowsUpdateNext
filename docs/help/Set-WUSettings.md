@@ -131,7 +131,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -154,7 +154,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -177,7 +177,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -246,7 +246,7 @@ Supported on: At least Windows Server 2012, Windows 8 or Windows RT
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -315,7 +315,7 @@ Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -432,7 +432,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -455,7 +455,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -478,7 +478,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -524,7 +524,7 @@ Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -547,7 +547,7 @@ Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Se
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -708,7 +708,7 @@ Supported on: At least Windows Server, Windows 10 Version 1709
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -897,7 +897,7 @@ Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -943,7 +943,7 @@ Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -989,7 +989,7 @@ Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -1066,7 +1066,7 @@ Starting with Windows 8 and Windows Server 2012, the Windows Update Agent no lon
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -1089,7 +1089,7 @@ Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -1115,7 +1115,7 @@ Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
 ```yaml
 Type: System.Int32
-DefaultValue: 0
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:

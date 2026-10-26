@@ -316,7 +316,7 @@ HelpMessage: ''
 
 ### -ServiceName
 
-Specifies the name under which the offline scan package is registered.
+Specifies the name under which the offline scan package is registered. The default is 'Offline Sync Service'.
 
 ```yaml
 Type: System.String

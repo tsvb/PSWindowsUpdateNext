@@ -250,7 +250,7 @@ A catalog entry with X, Identity, Title, Product, Classification, LastUpdated, V
 
 ## NOTES
 
-The cmdlet writes a warning when the session is not elevated. It has a confirmation impact of High, so it asks for confirmation for each catalog entry. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always downloads to the local computer. The cmdlet reads the HTML of the Catalog pages directly; it does not use Internet Explorer or the MSHTML engine.
+The cmdlet writes a warning when the session is not elevated. It has a confirmation impact of High, so it asks for confirmation for each catalog entry. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always downloads to the local computer. The cmdlet reads the HTML of the Catalog pages itself, so Internet Explorer is not required.
 
 ## RELATED LINKS
 
