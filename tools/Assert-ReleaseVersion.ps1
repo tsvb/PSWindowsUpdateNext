@@ -24,7 +24,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if ($Tag -notmatch '^v(?<v>\d+\.\d+\.\d+(\.\d+)?)$') {
+if (-not ($Tag -match '^v(?<v>\d+\.\d+\.\d+(\.\d+)?)$')) {
     throw "Release tag '$Tag' is not of the form v<major>.<minor>.<patch> (for example v3.1.0)."
 }
 $version = $Matches['v']
