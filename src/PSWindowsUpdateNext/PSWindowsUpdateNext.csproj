@@ -59,7 +59,7 @@
     <PackageReference Include="System.Management" Version="10.0.14" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.1" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>
