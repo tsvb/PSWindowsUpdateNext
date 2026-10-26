@@ -26,6 +26,28 @@ namespace PSWindowsUpdateNext;
 public class WUTools : PSCmdlet
 {
 	/// <summary>
+	/// WUTools is a cmdlet that is constructed but never invoked. Without a command runtime,
+	/// Cmdlet.WriteWarning and WriteDebug throw NotImplementedException, so these helpers write only
+	/// when a calling cmdlet has lent its runtime (WUToolsObj.CommandRuntime = CommandRuntime) and are
+	/// silent otherwise.
+	/// </summary>
+	private void Warn(string message)
+	{
+		if (CommandRuntime != null)
+		{
+			WriteWarning(message);
+		}
+	}
+
+	private void TraceDebug(string message)
+	{
+		if (CommandRuntime != null)
+		{
+			WriteDebug(message);
+		}
+	}
+
+	/// <summary>
 	/// Possible http web request methods
 	/// </summary>
 	public enum HttpWebRequestMethod
@@ -261,8 +283,9 @@ public class WUTools : PSCmdlet
 				serviceController.WaitForStatus(ServiceControllerStatus.Running);
 				return;
 			}
-			catch
+			catch (Exception serviceError)
 			{
+				Warn(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
 				return;
 			}
 		}
@@ -276,8 +299,9 @@ public class WUTools : PSCmdlet
 			serviceController2.Start();
 			serviceController2.WaitForStatus(ServiceControllerStatus.Running);
 		}
-		catch
+		catch (Exception serviceError)
 		{
+			Warn(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
 		}
 	}
 
@@ -301,8 +325,9 @@ public class WUTools : PSCmdlet
 				}
 				return;
 			}
-			catch
+			catch (Exception serviceError)
 			{
+				Warn(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
 				return;
 			}
 		}
@@ -316,8 +341,9 @@ public class WUTools : PSCmdlet
 				serviceController2.WaitForStatus(ServiceControllerStatus.Stopped);
 			}
 		}
-		catch
+		catch (Exception serviceError)
 		{
+			Warn(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
 		}
 	}
 
@@ -341,8 +367,9 @@ public class WUTools : PSCmdlet
 				}
 				return;
 			}
-			catch
+			catch (Exception serviceError)
 			{
+				Warn(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
 				return;
 			}
 		}
@@ -356,8 +383,9 @@ public class WUTools : PSCmdlet
 				serviceController2.WaitForStatus(ServiceControllerStatus.Running);
 			}
 		}
-		catch
+		catch (Exception serviceError)
 		{
+			Warn(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
 		}
 	}
 
@@ -378,8 +406,9 @@ public class WUTools : PSCmdlet
 			process.StartInfo = processStartInfo;
 			process.Start();
 		}
-		catch
+		catch (Exception processError)
 		{
+			Warn("Failed to start '" + FileName + " " + Arguments + "': " + processError.Message);
 		}
 	}
 
@@ -395,12 +424,12 @@ public class WUTools : PSCmdlet
 			Ping ping = new Ping();
 			PingReply pingReply = ping.Send(Computer);
 			flag = true;
-			WriteDebug(Computer + ": Ping connection Succeeded");
+			TraceDebug(Computer + ": Ping connection Succeeded");
 		}
 		catch
 		{
 			flag = false;
-			WriteDebug(Computer + ": Ping connection Failed");
+			TraceDebug(Computer + ": Ping connection Failed");
 		}
 		return flag;
 	}
@@ -1031,7 +1060,6 @@ public class WUTools : PSCmdlet
 	/// <param name="Size">Size in bytes</param>
 	public string ConvertSize(decimal Size)
 	{
-		string text = "";
 		if (Math.Round(Size, 0) < 1024m)
 		{
 			return Math.Round(Size, 0) + "B";
@@ -1082,8 +1110,9 @@ public class WUTools : PSCmdlet
 			{
 				pSObject = collection[0];
 			}
-			catch
+			catch (ArgumentOutOfRangeException)
 			{
+				// No result: the module is not installed on the target. Report it as missing, not as a failure.
 				pSObject.Properties.Add(new PSNoteProperty("PSWindowsUpdateNext", null));
 				pSObject.Properties.Add(new PSNoteProperty("PSWUModuleDll", null));
 			}
@@ -1102,14 +1131,7 @@ public class WUTools : PSCmdlet
 	public ErrorRecord CheckPSWUModule(string Computer)
 	{
 		PSObject pSWUModule = GetPSWUModule(Computer);
-		ErrorRecord errorRecord = null;
-		try
-		{
-			errorRecord = (ErrorRecord)pSWUModule.Properties["Error"].Value;
-		}
-		catch
-		{
-		}
+		ErrorRecord errorRecord = pSWUModule.Properties["Error"]?.Value as ErrorRecord;
 		Version version = MinimumPSWUModule();
 		Version version2 = null;
 		if (errorRecord == null)
@@ -1200,8 +1222,9 @@ public class WUTools : PSCmdlet
 				PSObject pSObject = (PSObject)PSSerializer.Deserialize(source);
 				return (Hashtable)pSObject.BaseObject;
 			}
-			catch
+			catch (Exception ex)
 			{
+				Warn("Could not read the saved PSWUSettings from '" + path + "', ignoring it: " + ex.Message);
 			}
 		}
 		return new Hashtable();
@@ -1222,7 +1245,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception ex)
 		{
-			WriteDebug("Something goes wrong: " + ex.Message);
+			Warn("Could not save the PSWUSettings to '" + path + "': " + ex.Message);
 		}
 	}
 
@@ -1255,6 +1278,7 @@ public class WUTools : PSCmdlet
 			}
 			catch
 			{
+				// A property getter that throws (for example a ScriptProperty) must not break the whole report; render an empty cell.
 				return string.Empty;
 			}
 		}

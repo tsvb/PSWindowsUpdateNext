@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Security
+- `Show-PSWUConsole` no longer compiles `Gui\Models.cs` with `Add-Type` or loads loose XAML files at run time. The row types are now part of `PSWindowsUpdateNext.dll` and the two XAML files are embedded in it, so under an `AllSigned` policy everything the console executes is covered by the signature. The console no longer calls `Add-Type` on source code, so it needs no C# compiler. `Gui\MainWindow.xaml`, `Gui\Theme.xaml`, and `Gui\Models.cs` are removed from the module folder.
+- The console's "Restart as administrator" button no longer starts the elevated host with `-ExecutionPolicy Bypass`. It respects the configured execution policy, and passes on a policy only when the user set one for the current session. The command goes through `-EncodedCommand` with PowerShell's own quoting, so a module path that contains an apostrophe or a typographic quote no longer breaks it.
+- `Get-WUOfflineMSU` hands BITS the canonical form of the download URL it validated, instead of the raw string from the Catalog page, so the host BITS connects to cannot differ from the host the allowlist approved.
+
+### Added
+- `SECURITY.md` explains how to report a vulnerability privately. `CONTRIBUTING.md` explains how to build, test, update help and open a pull request.
+- Dependabot checks the GitHub Actions and NuGet dependencies every week.
+- Static analysis in CI. The C# project builds with the .NET analyzers (`AnalysisLevel` 8.0, default rule set plus every security rule) and treats warnings as errors; the settings and each suppression with its reason are in `.editorconfig`. A new CI step runs PSScriptAnalyzer (pinned to 1.24.0, `PSScriptAnalyzerSettings.psd1`) over the loader, `build.ps1`, `tools`, `tests`, and `module/Gui`, and fails on any Error or Warning.
+- C# unit tests in `tests/PSWindowsUpdateNext.UnitTests` (xUnit, `net8.0-windows` and `net472`), run in CI right after the module build. They cover Catalog page parsing (search rows, download dialog, HTML entities, malformed input), the download host allowlist, the `Invoke-WUJob` `-EncodedCommand` round trip, the `WUFileVerifier` digests, and the DPAPI helpers (Windows only; skipped elsewhere). `PSWindowsUpdateNext.sln` now ties the module and the test project together.
+
+### Changed
+- Every build checks that `ModuleVersion` and the project file agree on the version, not only release tags.
+- The GitHub Actions used by the build are pinned to commit SHAs.
+- `Set-WUSettings` no longer discards why a write failed. The error for a value it could not set now names the computer and the value and carries the exception message instead of a fixed "Access denied.". Reading the current value of a setting that is not set is still silent, but the reason now appears with `-Debug`.
+- Failures of service restarts (`Add-WUServiceManager`, `Remove-WUServiceManager`), service stop and start and external commands (`Reset-WUComponents`), and saving or loading `PSWUSettings.xml` (`Set-PSWUSettings`) are reported as warnings. They were silent.
+- All native calls resolve their DLL from System32 only.
+- `Set-PSWUSettings` no longer computes the unused minute-based key from the original module and no longer prints it with `-Debug`. The `-SaveAsSystem` value has been protected with machine-scope DPAPI since 3.0.0; a value that cannot be decrypted now produces a clear error.
+- Internal only, no change in behavior: the Catalog parsing and download host check moved out of `Get-WUOfflineMSU` into an internal `MsuCatalogParser` class, and the `Invoke-WUJob` argument builder into `WUJobCommandLine`, so they can be tested.
+
+### Fixed
+- Removed the three compiler warnings (each reported once per target): an ignored attribute in `INetFwPolicy2`, an unused variable in `ConvertSize`, and a `catch` that only rethrew in `WUCimSession.InstallUpdates`.
+
+### Tests
+- The desktop console test now runs. Pester 5 decides `-Skip` while it discovers tests, and the old apartment check ran too late, so the test was always skipped. CI also runs it in explicit STA hosts for PowerShell 7 and Windows PowerShell 5.1 and fails if the window is not built.
+
 ## 3.2.0 (2026-10-26)
 
 First release published to GitHub Releases and the PowerShell Gallery.

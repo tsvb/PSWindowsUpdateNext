@@ -5,6 +5,10 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 
+// Every P/Invoke in this assembly targets a Windows system DLL (advapi32, wintrust). Resolving them from
+// System32 only means a same-named DLL in the working directory or on PATH is never loaded (CA5392).
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+
 namespace PSWindowsUpdateNext;
 
 /// <summary />

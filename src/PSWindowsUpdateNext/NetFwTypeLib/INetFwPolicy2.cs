@@ -28,9 +28,9 @@ public interface INetFwPolicy2
 
 	void _VtblGap3_6();
 
-	// C# has no syntax for parameterized property 'IsRuleGroupCurrentlyEnabled'.
-	// Its 'property:' attributes below are ignored by the compiler (CS0657).
-	[property: DispId(14)]
+	// C# has no syntax for a parameterized property, so 'IsRuleGroupCurrentlyEnabled' is its getter.
+	// ILSpy also emitted '[property: DispId(14)]' here; the compiler ignored it (CS0657), and the
+	// method-level DispId below carries the same value.
 	[MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
 	[DispId(14)]
 	bool get_IsRuleGroupCurrentlyEnabled([In][MarshalAs(UnmanagedType.BStr)] string group);

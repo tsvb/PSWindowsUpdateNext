@@ -127,6 +127,7 @@ dangerous elsewhere, so they are called out here.
 dotnet build src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj -c Release
 .\build.ps1            # assembles out\PSWindowsUpdateNext
 Invoke-Pester .\tests  # smoke tests, run after build.ps1
+dotnet test tests\PSWindowsUpdateNext.UnitTests -c Release   # C# unit tests; the DPAPI tests run on Windows only
 ```
 
 Help for `Get-Help` is written as markdown in `docs/help`. After editing a page, run
@@ -138,6 +139,11 @@ The project multi-targets `net472` and `net8.0-windows`. PowerShell 7 already sh
 Windows-specific runtime assemblies the module uses (System.Management, Microsoft.Management.Infrastructure,
 System.ServiceProcess.ServiceController, System.Security.Cryptography.ProtectedData), so nothing
 besides the module DLL is copied into the module folder.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to build, test and send changes. To report a vulnerability, follow
+[SECURITY.md](SECURITY.md), which asks for a private report.
 
 ## Credits and license
 

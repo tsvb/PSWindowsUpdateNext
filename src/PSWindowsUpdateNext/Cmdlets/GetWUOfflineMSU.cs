@@ -42,18 +42,6 @@ public class GetWUOfflineMSU : PSCmdlet
 
 	private const string CatalogDownloadDialogUrl = "https://www.catalog.update.microsoft.com/DownloadDialog.aspx";
 
-	private static readonly Regex RowRegex = new Regex("<tr id=\"(?<id>[0-9a-fA-F-]{36})_R\\d+\"(?<row>.*?)</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-
-	private static readonly Regex TitleRegex = new Regex("_link'[^>]*>(?<v>.*?)</a>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-
-	private static readonly Regex SizeRegex = new Regex("_size\">(?<v>[^<]*)</span>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-	private static readonly Regex OriginalSizeRegex = new Regex("_originalSize\">(?<v>[^<]*)</span>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-	private static readonly Regex TagRegex = new Regex("<[^>]+>", RegexOptions.Compiled);
-
-	private static readonly Regex DownloadInfoRegex = new Regex("downloadInformation\\[(?<u>\\d+)\\]\\.files\\[(?<f>\\d+)\\]\\.(?<k>url|digest|fileName)\\s*=\\s*'(?<v>[^']*)'", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
 	private Hashtable _PSWUSettings = new Hashtable();
 
 	/// <summary>
@@ -179,81 +167,6 @@ public class GetWUOfflineMSU : PSCmdlet
 		}
 	}
 
-	private static string Cell(string row, int column)
-	{
-		Match match = Regex.Match(row, "_C" + column + "_R\\d+\"[^>]*>(?<v>.*?)</td>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-		return match.Success ? Clean(match.Groups["v"].Value) : string.Empty;
-	}
-
-	private static string Clean(string html)
-	{
-		return WebUtility.HtmlDecode(TagRegex.Replace(html, string.Empty)).Trim();
-	}
-
-	private static bool IsTrustedDownloadHost(Uri uri)
-	{
-		if (uri.Scheme != Uri.UriSchemeHttps)
-		{
-			return false;
-		}
-		string host = uri.Host.ToLowerInvariant();
-		return host == "download.windowsupdate.com" || host.EndsWith(".windowsupdate.com", StringComparison.Ordinal) || host.EndsWith(".microsoft.com", StringComparison.Ordinal);
-	}
-
-	/// <summary>
-	/// Parse the Catalog "DownloadDialog" script block into (url, fileName, digest) tuples.
-	/// </summary>
-	private List<PSObject> ParseDownloadFiles(string html)
-	{
-		Dictionary<string, Dictionary<string, string>> files = new Dictionary<string, Dictionary<string, string>>();
-		foreach (Match m in DownloadInfoRegex.Matches(html))
-		{
-			string key = m.Groups["u"].Value + "/" + m.Groups["f"].Value;
-			if (!files.TryGetValue(key, out Dictionary<string, string> entry))
-			{
-				entry = new Dictionary<string, string>();
-				files[key] = entry;
-			}
-			entry[m.Groups["k"].Value.ToLowerInvariant()] = m.Groups["v"].Value;
-		}
-		List<PSObject> result = new List<PSObject>();
-		foreach (Dictionary<string, string> entry in files.Values)
-		{
-			if (!entry.TryGetValue("url", out string url) || string.IsNullOrEmpty(url))
-			{
-				continue;
-			}
-			Uri uri;
-			try
-			{
-				uri = new Uri(url);
-			}
-			catch (UriFormatException)
-			{
-				WriteWarning("Skipping malformed download URL: " + url);
-				continue;
-			}
-			if (!IsTrustedDownloadHost(uri))
-			{
-				WriteWarning("Skipping download URL on untrusted host or scheme: " + url);
-				continue;
-			}
-			entry.TryGetValue("filename", out string fileName);
-			if (string.IsNullOrEmpty(fileName))
-			{
-				fileName = Path.GetFileName(uri.LocalPath);
-			}
-			fileName = Path.GetFileName(fileName);
-			entry.TryGetValue("digest", out string digest);
-			PSObject file = new PSObject();
-			file.Properties.Add(new PSNoteProperty("Url", url));
-			file.Properties.Add(new PSNoteProperty("FileName", fileName));
-			file.Properties.Add(new PSNoteProperty("Digest", digest));
-			result.Add(file);
-		}
-		return result;
-	}
-
 	private void CoreProcessing()
 	{
 		string[] computerName = ComputerName;
@@ -266,38 +179,33 @@ public class GetWUOfflineMSU : PSCmdlet
 			string searchUrl = CatalogSearchUrl + Uri.EscapeDataString(KBArticleID);
 			WriteDebug(DateTime.Now.ToString() + " " + searchUrl);
 			string searchHtml = WUToolsObj.InvokeRestMethod(searchUrl, WUTools.HttpWebRequestMethod.GET, null, null);
-			MatchCollection rows = RowRegex.Matches(searchHtml);
+			List<CatalogRow> rows = MsuCatalogParser.ParseSearchResults(searchHtml);
 			int count = rows.Count;
 			WriteVerbose("Found [" + count + "] Updates in Microsoft Update Catalog");
 			int num = 0;
 			ProgressRecord progressRecord = new ProgressRecord(1, "Choose updates for " + text, "[" + num + "/" + count + "]");
 			Collection<PSObject> collection = new Collection<PSObject>();
 			HashSet<string> wanted = UpdateID != null && UpdateID.Length > 0 ? new HashSet<string>(UpdateID, StringComparer.OrdinalIgnoreCase) : null;
-			foreach (Match row in rows)
+			foreach (CatalogRow row in rows)
 			{
-				string rowHtml = row.Groups["row"].Value;
-				string identity = row.Groups["id"].Value;
+				string identity = row.Identity;
 				if (wanted != null && !wanted.Contains(identity))
 				{
 					num++;
 					continue;
 				}
-				Match titleMatch = TitleRegex.Match(rowHtml);
-				string title = titleMatch.Success ? Clean(titleMatch.Groups["v"].Value) : identity;
-				Match sizeMatch = SizeRegex.Match(rowHtml);
-				string size = sizeMatch.Success ? Clean(sizeMatch.Groups["v"].Value) : string.Empty;
-				Match originalSizeMatch = OriginalSizeRegex.Match(rowHtml);
-				string originalSize = originalSizeMatch.Success ? Clean(originalSizeMatch.Groups["v"].Value) : string.Empty;
+				string title = row.Title;
+				string size = row.Size;
 				PSObject pSObject = new PSObject();
 				pSObject.Properties.Add(new PSNoteProperty("X", 1));
 				pSObject.Properties.Add(new PSNoteProperty("Identity", identity));
 				pSObject.Properties.Add(new PSNoteProperty("Title", title));
-				pSObject.Properties.Add(new PSNoteProperty("Product", Cell(rowHtml, 2)));
-				pSObject.Properties.Add(new PSNoteProperty("Classification", Cell(rowHtml, 3)));
-				pSObject.Properties.Add(new PSNoteProperty("LastUpdated", Cell(rowHtml, 4)));
-				pSObject.Properties.Add(new PSNoteProperty("Version", Cell(rowHtml, 5)));
+				pSObject.Properties.Add(new PSNoteProperty("Product", row.Product));
+				pSObject.Properties.Add(new PSNoteProperty("Classification", row.Classification));
+				pSObject.Properties.Add(new PSNoteProperty("LastUpdated", row.LastUpdated));
+				pSObject.Properties.Add(new PSNoteProperty("Version", row.Version));
 				pSObject.Properties.Add(new PSNoteProperty("Size", size));
-				pSObject.Properties.Add(new PSNoteProperty("OriginalSize", originalSize));
+				pSObject.Properties.Add(new PSNoteProperty("OriginalSize", row.OriginalSize));
 				progressRecord.StatusDescription = "[" + num + "/" + count + "] " + title + " " + size;
 				progressRecord.PercentComplete = count == 0 ? 100 : num * 100 / count;
 				WriteProgress(progressRecord);
@@ -315,7 +223,15 @@ public class GetWUOfflineMSU : PSCmdlet
 					};
 					WriteDebug(DateTime.Now.ToString() + " " + body["updateIDs"]);
 					string dialogHtml = WUToolsObj.InvokeRestMethod(CatalogDownloadDialogUrl, WUTools.HttpWebRequestMethod.POST, body, null);
-					List<PSObject> files = ParseDownloadFiles(dialogHtml);
+					List<PSObject> files = new List<PSObject>();
+					foreach (CatalogFile catalogFile in MsuCatalogParser.ParseDownloadFiles(dialogHtml, WriteWarning))
+					{
+						PSObject fileObject = new PSObject();
+						fileObject.Properties.Add(new PSNoteProperty("Url", catalogFile.Url));
+						fileObject.Properties.Add(new PSNoteProperty("FileName", catalogFile.FileName));
+						fileObject.Properties.Add(new PSNoteProperty("Digest", catalogFile.Digest));
+						files.Add(fileObject);
+					}
 					if (files.Count == 0)
 					{
 						WriteError(new ErrorRecord(new Exception(title + ": the Catalog returned no downloadable files."), "NoDownloadUrl", ErrorCategory.ObjectNotFound, identity));

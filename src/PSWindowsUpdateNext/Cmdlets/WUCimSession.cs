@@ -57,15 +57,6 @@ internal class WUCimSession
 		}
 		CimInstance instance = new CimInstance(className, namespaceName);
 		CimSession cimSession = CimSession.Create(ComputerName);
-		CimMethodResult result = null;
-		try
-		{
-			result = cimSession.InvokeMethod(instance, methodName, cimMethodParametersCollection);
-		}
-		catch (Exception ex)
-		{
-			throw;
-		}
-		return result;
+		return cimSession.InvokeMethod(instance, methodName, cimMethodParametersCollection);
 	}
 }

@@ -16,7 +16,12 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # Every build: ModuleVersion and the csproj versions must agree.
+      - name: Check version consistency
+        shell: pwsh
+        run: ./tools/Assert-ReleaseVersion.ps1
 
       # Fail fast, before building and testing, if a release tag disagrees with the repository.
       - name: Check release version (tags only)
@@ -26,7 +31,7 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: ./tools/Assert-ReleaseVersion.ps1 -Tag $env:TAG_NAME
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '8.0.x'
 
@@ -38,9 +43,45 @@ jobs:
           Install-PSResource -Name Microsoft.PowerShell.PlatyPS -Version '1.0.3' -Scope CurrentUser -TrustRepository
           ./tools/Build-Help.ps1 -Check
 
+      # Lint the PowerShell. PSScriptAnalyzer is pinned because a newer release can add rules and turn a
+      # green build red. Settings, and the reasons for each excluded rule, are in PSScriptAnalyzerSettings.psd1.
+      # Every Error or Warning becomes an annotation on the file and line, and any finding fails the step.
+      - name: Lint PowerShell (PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          Install-PSResource -Name PSScriptAnalyzer -Version '1.24.0' -Scope CurrentUser -TrustRepository
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.24.0
+
+          $settings = Join-Path -Path $PWD.Path -ChildPath 'PSScriptAnalyzerSettings.psd1'
+          $targets = 'module/PSWindowsUpdateNext.psm1', 'build.ps1', 'tools', 'tests', 'module/Gui'
+          $findings = @(foreach ($target in $targets) {
+              Invoke-ScriptAnalyzer -Path $target -Recurse -Settings $settings
+          })
+
+          foreach ($f in $findings) {
+              # ParseError records are failures too; the settings file only filters rule severities.
+              $level = if ($f.Severity -eq 'Warning') { 'warning' } else { 'error' }
+              $file = [System.IO.Path]::GetRelativePath($PWD.Path, $f.ScriptPath).Replace('\', '/')
+              $text = $f.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+              $title = if ($f.RuleName) { $f.RuleName } else { $f.Severity }
+              Write-Host "::$level file=${file},line=$($f.Line),col=$($f.Column),title=${title}::${text}"
+          }
+
+          if ($findings.Count -gt 0) {
+              $findings | Group-Object -Property RuleName | Sort-Object -Property Count -Descending |
+                  Format-Table -Property Count, Name -AutoSize | Out-String | Write-Host
+              Write-Host "::error title=PSScriptAnalyzer::$($findings.Count) finding(s). See the annotations above."
+              exit 1
+          }
+          Write-Host 'PSScriptAnalyzer: no findings.'
+
       - name: Build module
         shell: pwsh
         run: ./build.ps1 -Configuration Release
+
+      - name: Unit tests
+        shell: pwsh
+        run: dotnet test tests/PSWindowsUpdateNext.UnitTests -c Release --logger "console;verbosity=normal"
 
       - name: Install Pester
         shell: pwsh
@@ -64,8 +105,22 @@ jobs:
           $cfg.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $cfg
 
+      # WPF needs a single-threaded apartment, and the window test skips itself in any other host. These
+      # steps start STA hosts explicitly and fail if the window test did not run and pass.
+      - name: Console test in PowerShell 7 (STA)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
+      - name: Console test in Windows PowerShell 5.1 (STA)
+        shell: powershell
+        run: |
+          powershell -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
       - name: Upload module
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: PSWindowsUpdateNext
           path: out/PSWindowsUpdateNext
@@ -83,7 +138,7 @@ jobs:
     outputs:
       signed: ${{ steps.config.outputs.signed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Check signing configuration
         id: config
@@ -105,7 +160,7 @@ jobs:
             exit 1
           }
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: PSWindowsUpdateNext
           path: PSWindowsUpdateNext
@@ -151,8 +206,26 @@ jobs:
           $cfg.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $cfg
 
+      # WPF needs a single-threaded apartment, and the window test skips itself in any other host. These
+      # steps start STA hosts explicitly and fail if the window test did not run and pass.
+      - name: Console test of signed module in PowerShell 7 (STA)
+        if: steps.config.outputs.signed == 'true'
+        shell: pwsh
+        run: |
+          $env:PSWU_MODULE_PATH = (Resolve-Path ./PSWindowsUpdateNext).ProviderPath
+          pwsh -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
+      - name: Console test of signed module in Windows PowerShell 5.1 (STA)
+        if: steps.config.outputs.signed == 'true'
+        shell: powershell
+        run: |
+          $env:PSWU_MODULE_PATH = (Resolve-Path ./PSWindowsUpdateNext).ProviderPath
+          powershell -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
       - name: Upload release module
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: PSWindowsUpdateNext-release
           path: PSWindowsUpdateNext
@@ -167,9 +240,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: PSWindowsUpdateNext-release
           path: PSWindowsUpdateNext
@@ -220,7 +293,7 @@ jobs:
     runs-on: windows-latest
     environment: release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Check Gallery configuration
         id: config
@@ -236,7 +309,7 @@ jobs:
             Write-Host '::warning title=PowerShell Gallery publish skipped::The PSGALLERY_API_KEY secret is not set (as a repository or `release` environment secret). The GitHub release was still created.'
           }
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         if: steps.config.outputs.publish == 'true'
         with:
           name: PSWindowsUpdateNext-release

@@ -52,10 +52,7 @@
         'PSWindowsUpdateNext.dll-Help.xml',
         'net472\PSWindowsUpdateNext.dll',
         'net8.0-windows\PSWindowsUpdateNext.dll',
-        'Gui\Show-PSWUConsole.ps1',
-        'Gui\MainWindow.xaml',
-        'Gui\Theme.xaml',
-        'Gui\Models.cs'
+        'Gui\Show-PSWUConsole.ps1'
     )
     PrivateData = @{
         PSData = @{

@@ -585,6 +585,16 @@ public class SetWUSettings : PSCmdlet
 		}
 	}
 
+	/// <summary>
+	/// Reading the current value of a policy is optional: it is normally not set, and the unset default is
+	/// used for the comparison before writing. Say so in the debug stream instead of swallowing the error.
+	/// </summary>
+	private void WriteReadDebug(string computerName, string valueName, Exception error)
+	{
+		string reason = ((error is NullReferenceException) ? "the value is not set" : error.Message);
+		WriteDebug(DateTime.Now.ToString() + " " + computerName + ": Could not read '" + valueName + "' (" + reason + "), using the default for the comparison");
+	}
+
 	private void CoreProcessing()
 	{
 		string invocationName = MyInvocation.InvocationName;
@@ -621,8 +631,10 @@ public class SetWUSettings : PSCmdlet
 				WriteDebug(DateTime.Now.ToString() + " Module version: " + pSWUModule.Properties["Version"].Value);
 				WriteDebug(DateTime.Now.ToString() + " Dll version: " + pSWUModule.Properties["PSWUDllVersion"].Value);
 			}
-			catch
+			catch (Exception moduleError)
 			{
+				// The module version is only reported in debug output; a target without PSWindowsUpdateNext is normal.
+				WriteDebug(DateTime.Now.ToString() + " " + text + ": Could not read the module version (" + ((moduleError is NullReferenceException) ? "PSWindowsUpdateNext is not available on the target" : moduleError.Message) + ")");
 			}
 			if (!ShouldProcess(text, "(" + DateTime.Now.ToString() + ") Set Windows Update settings"))
 			{
@@ -658,8 +670,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag2 = Convert.ToBoolean(registryKey2.GetValue("AcceptTrustedPublisherCerts"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AcceptTrustedPublisherCerts", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AcceptTrustedPublisherCerts", flag));
 				if (flag != flag2)
@@ -669,9 +682,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AcceptTrustedPublisherCerts: " + flag2 + " => " + flag);
 						registryKey2.SetValue("AcceptTrustedPublisherCerts", Convert.ToInt32(flag), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AcceptTrustedPublisherCerts", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AcceptTrustedPublisherCerts': " + writeError.Message, writeError), "AcceptTrustedPublisherCerts", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -689,8 +702,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag4 = Convert.ToBoolean(registryKey2.GetValue("DisableWindowsUpdateAccess"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DisableWindowsUpdateAccess", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DisableWindowsUpdateAccess", flag3));
 				if (flag3 != flag4)
@@ -700,9 +714,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DisableWindowsUpdateAccess: " + flag4 + " => " + flag3);
 						registryKey2.SetValue("DisableWindowsUpdateAccess", Convert.ToInt32(flag3), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DisableWindowsUpdateAccess", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DisableWindowsUpdateAccess': " + writeError.Message, writeError), "DisableWindowsUpdateAccess", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -720,8 +734,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag6 = Convert.ToBoolean(registryKey2.GetValue("ElevateNonAdmins"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ElevateNonAdmins", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ElevateNonAdmins", flag5));
 				if (flag5 != flag6)
@@ -731,9 +746,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ElevateNonAdmins: " + flag6 + " => " + flag5);
 						registryKey2.SetValue("ElevateNonAdmins", Convert.ToInt32(flag5), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ElevateNonAdmins", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ElevateNonAdmins': " + writeError.Message, writeError), "ElevateNonAdmins", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -751,8 +766,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					text2 = (string)registryKey2.GetValue("\r\n");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "TargetGroup", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("TargetGroup", targetGroup));
 				if (targetGroup != text2)
@@ -762,9 +778,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " TargetGroup: " + text2 + " => " + targetGroup);
 						registryKey2.SetValue("TargetGroup", targetGroup, RegistryValueKind.String);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "TargetGroup", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'TargetGroup': " + writeError.Message, writeError), "TargetGroup", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -782,8 +798,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag8 = Convert.ToBoolean(registryKey2.GetValue("TargetGroupEnabled"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "TargetGroupEnabled", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("TargetGroupEnabled", flag7));
 				if (flag7 != flag8)
@@ -793,9 +810,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " TargetGroupEnabled: " + flag8 + " => " + flag7);
 						registryKey2.SetValue("TargetGroupEnabled", Convert.ToInt32(flag7), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "TargetGroupEnabled", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'TargetGroupEnabled': " + writeError.Message, writeError), "TargetGroupEnabled", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -813,8 +830,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					text3 = (string)registryKey2.GetValue("WUServer");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "WUServer", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("WUServer", wUServer));
 				if (wUServer != text3)
@@ -824,9 +842,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " WUServer: " + text3 + " => " + wUServer);
 						registryKey2.SetValue("WUServer", wUServer, RegistryValueKind.String);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "WUServer", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'WUServer': " + writeError.Message, writeError), "WUServer", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -844,8 +862,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag10 = Convert.ToBoolean(registryKey3.GetValue("NoAutoUpdate"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "NoAutoUpdate", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("NoAutoUpdate", flag9));
 				if (flag9 != flag10)
@@ -855,9 +874,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " NoAutoUpdate: " + flag10 + " => " + flag9);
 						registryKey3.SetValue("NoAutoUpdate", Convert.ToInt32(flag9), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "NoAutoUpdate", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'NoAutoUpdate': " + writeError.Message, writeError), "NoAutoUpdate", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -875,8 +894,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num2 = (int)registryKey3.GetValue("AUOptions");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AUOptions", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AUOptions", num));
 				if (num != num2)
@@ -886,9 +906,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AUOptions: " + num2 + " => " + num);
 						registryKey3.SetValue("AUOptions", num, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AUOptions", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AUOptions': " + writeError.Message, writeError), "AUOptions", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -906,8 +926,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag12 = Convert.ToBoolean(registryKey3.GetValue("AutoInstallMinorUpdates"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AutoInstallMinorUpdates", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AutoInstallMinorUpdates", flag11));
 				if (flag11 != flag12)
@@ -917,9 +938,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AutoInstallMinorUpdates: " + flag12 + " => " + flag11);
 						registryKey3.SetValue("AutoInstallMinorUpdates", Convert.ToInt32(flag11), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AutoInstallMinorUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AutoInstallMinorUpdates': " + writeError.Message, writeError), "AutoInstallMinorUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -937,8 +958,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num3 = (int)registryKey3.GetValue("DetectionFrequency");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DetectionFrequency", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DetectionFrequency", detectionFrequency));
 				if (detectionFrequency != num3)
@@ -948,9 +970,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DetectionFrequency: " + num3 + " => " + detectionFrequency);
 						registryKey3.SetValue("DetectionFrequency", detectionFrequency, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DetectionFrequency", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DetectionFrequency': " + writeError.Message, writeError), "DetectionFrequency", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -968,8 +990,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag14 = Convert.ToBoolean(registryKey3.GetValue("DetectionFrequencyEnabled"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DetectionFrequencyEnabled", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DetectionFrequencyEnabled", flag13));
 				if (flag13 != flag14)
@@ -979,9 +1002,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DetectionFrequencyEnabled: " + flag14 + " => " + flag13);
 						registryKey3.SetValue("DetectionFrequencyEnabled", Convert.ToInt32(flag13), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DetectionFrequencyEnabled", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DetectionFrequencyEnabled': " + writeError.Message, writeError), "DetectionFrequencyEnabled", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -999,8 +1022,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag16 = Convert.ToBoolean(registryKey3.GetValue("IncludeRecommendedUpdates"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "IncludeRecommendedUpdates", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("IncludeRecommendedUpdates", flag15));
 				if (flag15 != flag16)
@@ -1010,9 +1034,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " IncludeRecommendedUpdates: " + flag16 + " => " + flag15);
 						registryKey3.SetValue("IncludeRecommendedUpdates", Convert.ToInt32(flag15), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "IncludeRecommendedUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'IncludeRecommendedUpdates': " + writeError.Message, writeError), "IncludeRecommendedUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1030,8 +1054,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag18 = Convert.ToBoolean(registryKey3.GetValue("NoAutoRebootWithLoggedOnUsers"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "NoAutoRebootWithLoggedOnUsers", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("NoAutoRebootWithLoggedOnUsers", flag17));
 				if (flag17 != flag18)
@@ -1041,9 +1066,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " NoAutoRebootWithLoggedOnUsers: " + flag18 + " => " + flag17);
 						registryKey3.SetValue("NoAutoRebootWithLoggedOnUsers", Convert.ToInt32(flag17), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "NoAutoRebootWithLoggedOnUsers", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'NoAutoRebootWithLoggedOnUsers': " + writeError.Message, writeError), "NoAutoRebootWithLoggedOnUsers", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1061,8 +1086,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num4 = (int)registryKey3.GetValue("RebootRelaunchTimeout");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "RebootRelaunchTimeout", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("RebootRelaunchTimeout", rebootRelaunchTimeout));
 				if (rebootRelaunchTimeout != num4)
@@ -1072,9 +1098,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " RebootRelaunchTimeout: " + num4 + " => " + rebootRelaunchTimeout);
 						registryKey3.SetValue("RebootRelaunchTimeout", rebootRelaunchTimeout, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "RebootRelaunchTimeout", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'RebootRelaunchTimeout': " + writeError.Message, writeError), "RebootRelaunchTimeout", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1092,8 +1118,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag20 = Convert.ToBoolean(registryKey3.GetValue("RebootRelaunchTimeoutEnabled"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "RebootRelaunchTimeoutEnabled", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("RebootRelaunchTimeoutEnabled", flag19));
 				if (flag19 != flag20)
@@ -1103,9 +1130,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " RebootRelaunchTimeoutEnabled: " + flag20 + " => " + flag19);
 						registryKey3.SetValue("RebootRelaunchTimeoutEnabled", Convert.ToInt32(flag19), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "RebootRelaunchTimeoutEnabled", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'RebootRelaunchTimeoutEnabled': " + writeError.Message, writeError), "RebootRelaunchTimeoutEnabled", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1123,8 +1150,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num5 = (int)registryKey3.GetValue("RebootWarningTimeout");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "RebootWarningTimeout", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("RebootWarningTimeout", rebootWarningTimeout));
 				if (rebootWarningTimeout != num5)
@@ -1134,9 +1162,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " RebootWarningTimeout: " + num5 + " => " + rebootWarningTimeout);
 						registryKey3.SetValue("RebootWarningTimeout", rebootWarningTimeout, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "RebootWarningTimeout", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'RebootWarningTimeout': " + writeError.Message, writeError), "RebootWarningTimeout", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1154,8 +1182,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag22 = Convert.ToBoolean(registryKey3.GetValue("RebootWarningTimeoutEnabled"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "RebootWarningTimeoutEnabled", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("RebootWarningTimeoutEnabled", flag21));
 				if (flag21 != flag22)
@@ -1165,9 +1194,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " RebootWarningTimeoutEnabled: " + flag22 + " => " + flag21);
 						registryKey3.SetValue("RebootWarningTimeoutEnabled", Convert.ToInt32(flag21), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "RebootWarningTimeoutEnabled", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'RebootWarningTimeoutEnabled': " + writeError.Message, writeError), "RebootWarningTimeoutEnabled", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1185,8 +1214,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num7 = (int)registryKey3.GetValue("ScheduledInstallDay");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ScheduledInstallDay", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ScheduledInstallDay", num6));
 				if (num6 != num7)
@@ -1196,9 +1226,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ScheduledInstallDay: " + num7 + " => " + num6);
 						registryKey3.SetValue("ScheduledInstallDay", num6, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ScheduledInstallDay", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ScheduledInstallDay': " + writeError.Message, writeError), "ScheduledInstallDay", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1216,8 +1246,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num8 = (int)registryKey3.GetValue("ScheduledInstallTime");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ScheduledInstallTime", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ScheduledInstallTime", scheduledInstallTime));
 				if (scheduledInstallTime != num8)
@@ -1227,9 +1258,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ScheduledInstallTime: " + num8 + " => " + scheduledInstallTime);
 						registryKey3.SetValue("ScheduledInstallTime", scheduledInstallTime, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ScheduledInstallTime", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ScheduledInstallTime': " + writeError.Message, writeError), "ScheduledInstallTime", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1247,8 +1278,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag24 = Convert.ToBoolean(registryKey3.GetValue("UseWUServer"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "UseWUServer", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("UseWUServer", flag23));
 				if (flag23 != flag24)
@@ -1258,9 +1290,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " UseWUServer: " + flag24 + " => " + flag23);
 						registryKey3.SetValue("UseWUServer", Convert.ToInt32(flag23), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "UseWUServer", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'UseWUServer': " + writeError.Message, writeError), "UseWUServer", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1278,8 +1310,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag26 = Convert.ToBoolean(registryKey2.GetValue("TargetReleaseVersion"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "TargetReleaseVersion", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("TargetReleaseVersion", flag25));
 				if (flag25 != flag26)
@@ -1289,9 +1322,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " TargetReleaseVersion: " + flag26 + " => " + flag25);
 						registryKey2.SetValue("TargetReleaseVersion", Convert.ToInt32(flag25), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "TargetReleaseVersion", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'TargetReleaseVersion': " + writeError.Message, writeError), "TargetReleaseVersion", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1309,8 +1342,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					text4 = (string)registryKey2.GetValue("TargetReleaseVersionInfo");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "TargetReleaseVersionInfo", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("TargetReleaseVersionInfo", targetReleaseVersionInfo));
 				if (targetReleaseVersionInfo != text4)
@@ -1320,9 +1354,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " TargetRelTargetReleaseVersionInfoeaseVersion: " + text4 + " => " + targetReleaseVersionInfo);
 						registryKey2.SetValue("TargetReleaseVersionInfo", targetReleaseVersionInfo, RegistryValueKind.String);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "TargetReleaseVersionInfo", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'TargetReleaseVersionInfo': " + writeError.Message, writeError), "TargetReleaseVersionInfo", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1340,8 +1374,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					text5 = (string)registryKey2.GetValue("ProductVersion");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ProductVersion", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ProductVersion", productVersion));
 				if (productVersion != text5)
@@ -1351,9 +1386,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ProductVersion: " + text5 + " => " + productVersion);
 						registryKey2.SetValue("ProductVersion", productVersion, RegistryValueKind.String);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ProductVersion", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ProductVersion': " + writeError.Message, writeError), "ProductVersion", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1371,8 +1406,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag28 = Convert.ToBoolean(registryKey2.GetValue("DisableWUfBSafeguards"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DisableWUfBSafeguards", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DisableWUfBSafeguards", flag27));
 				if (flag27 != flag28)
@@ -1382,9 +1418,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DisableWUfBSafeguards: " + flag28 + " => " + flag27);
 						registryKey2.SetValue("DisableWUfBSafeguards", Convert.ToInt32(flag27), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DisableWUfBSafeguards", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DisableWUfBSafeguards': " + writeError.Message, writeError), "DisableWUfBSafeguards", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1402,8 +1438,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num9 = (int)registryKey2.GetValue("ManagePreviewBuildsPolicyValue");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ManagePreviewBuildsPolicyValue", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ManagePreviewBuilds", 1));
 				pSObject.Properties.Add(new PSNoteProperty("ManagePreviewBuildsPolicyValue", managePreviewBuilds));
@@ -1415,9 +1452,9 @@ public class SetWUSettings : PSCmdlet
 						registryKey2.SetValue("ManagePreviewBuilds", 1, RegistryValueKind.DWord);
 						registryKey2.SetValue("ManagePreviewBuildsPolicyValue", managePreviewBuilds, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ManagePreviewBuilds", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ManagePreviewBuilds': " + writeError.Message, writeError), "ManagePreviewBuilds", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1435,8 +1472,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num10 = (int)registryKey2.GetValue("DeferFeatureUpdatesPeriodInDays");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DeferFeatureUpdatesPeriodInDays", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DeferFeatureUpdates", 1));
 				pSObject.Properties.Add(new PSNoteProperty("DeferFeatureUpdatesPeriodInDays", deferFeatureUpdatesPeriodInDays));
@@ -1448,9 +1486,9 @@ public class SetWUSettings : PSCmdlet
 						registryKey2.SetValue("DeferFeatureUpdates", 1, RegistryValueKind.DWord);
 						registryKey2.SetValue("DeferFeatureUpdatesPeriodInDays", deferFeatureUpdatesPeriodInDays, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DeferFeatureUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DeferFeatureUpdates': " + writeError.Message, writeError), "DeferFeatureUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1468,8 +1506,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num11 = (int)registryKey2.GetValue("DeferQualityUpdatesPeriodInDays");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DeferQualityUpdatesPeriodInDays", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DeferQualityUpdates", 1));
 				pSObject.Properties.Add(new PSNoteProperty("DeferQualityUpdatesPeriodInDays", deferQualityUpdatesPeriodInDays));
@@ -1481,9 +1520,9 @@ public class SetWUSettings : PSCmdlet
 						registryKey2.SetValue("DeferQualityUpdates", 1, RegistryValueKind.DWord);
 						registryKey2.SetValue("DeferQualityUpdatesPeriodInDays", deferQualityUpdatesPeriodInDays, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DeferQualityUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DeferQualityUpdates': " + writeError.Message, writeError), "DeferQualityUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1501,8 +1540,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag30 = Convert.ToBoolean(registryKey2.GetValue("AllowAutoWindowsUpdateDownloadOverMeteredNetwork"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AllowAutoWindowsUpdateDownloadOverMeteredNetwork", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AllowAutoWindowsUpdateDownloadOverMeteredNetwork", flag29));
 				if (flag29 != flag30)
@@ -1512,9 +1552,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AllowAutoWindowsUpdateDownloadOverMeteredNetwork: " + flag30 + " => " + flag29);
 						registryKey2.SetValue("AllowAutoWindowsUpdateDownloadOverMeteredNetwork", Convert.ToInt32(flag29), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AllowAutoWindowsUpdateDownloadOverMeteredNetwork", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AllowAutoWindowsUpdateDownloadOverMeteredNetwork': " + writeError.Message, writeError), "AllowAutoWindowsUpdateDownloadOverMeteredNetwork", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1532,8 +1572,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag32 = Convert.ToBoolean(registryKey3.GetValue("AlwaysAutoRebootAtScheduledTime"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AlwaysAutoRebootAtScheduledTime", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AlwaysAutoRebootAtScheduledTime", flag31));
 				if (flag31 != flag32)
@@ -1543,9 +1584,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AlwaysAutoRebootAtScheduledTime: " + flag32 + " => " + flag31);
 						registryKey3.SetValue("AlwaysAutoRebootAtScheduledTime", Convert.ToInt32(flag31), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AlwaysAutoRebootAtScheduledTime", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AlwaysAutoRebootAtScheduledTime': " + writeError.Message, writeError), "AlwaysAutoRebootAtScheduledTime", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1563,8 +1604,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num12 = (int)registryKey3.GetValue("AlwaysAutoRebootAtScheduledTimeMinutes");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AlwaysAutoRebootAtScheduledTimeMinutes", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AlwaysAutoRebootAtScheduledTimeMinutes", alwaysAutoRebootAtScheduledTimeMinutes));
 				if (alwaysAutoRebootAtScheduledTimeMinutes != num12)
@@ -1574,9 +1616,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AlwaysAutoRebootAtScheduledTimeMinutes: " + num12 + " => " + alwaysAutoRebootAtScheduledTimeMinutes);
 						registryKey3.SetValue("AlwaysAutoRebootAtScheduledTimeMinutes", alwaysAutoRebootAtScheduledTimeMinutes, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AlwaysAutoRebootAtScheduledTimeMinutes", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AlwaysAutoRebootAtScheduledTimeMinutes': " + writeError.Message, writeError), "AlwaysAutoRebootAtScheduledTimeMinutes", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1594,8 +1636,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag34 = Convert.ToBoolean(registryKey2.GetValue("SetAutoRestartNotificationConfig"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetAutoRestartNotificationConfig", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetAutoRestartNotificationConfig", flag33));
 				if (flag33 != flag34)
@@ -1605,9 +1648,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetAutoRestartNotificationConfig: " + flag34 + " => " + flag33);
 						registryKey2.SetValue("SetAutoRestartNotificationConfig", Convert.ToInt32(flag33), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetAutoRestartNotificationConfig", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetAutoRestartNotificationConfig': " + writeError.Message, writeError), "SetAutoRestartNotificationConfig", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1625,8 +1668,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num13 = (int)registryKey3.GetValue("AutoRestartNotificationSchedule");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AutoRestartNotificationSchedule", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AutoRestartNotificationSchedule", autoRestartNotificationSchedule));
 				if (autoRestartNotificationSchedule != num13)
@@ -1636,9 +1680,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AutoRestartNotificationSchedule: " + num13 + " => " + autoRestartNotificationSchedule);
 						registryKey3.SetValue("AutoRestartNotificationSchedule", autoRestartNotificationSchedule, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AutoRestartNotificationSchedule", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AutoRestartNotificationSchedule': " + writeError.Message, writeError), "AutoRestartNotificationSchedule", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1656,8 +1700,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag36 = Convert.ToBoolean(registryKey2.GetValue("SetAutoRestartRequiredNotificationDismissal"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetAutoRestartRequiredNotificationDismissal", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetAutoRestartRequiredNotificationDismissal", flag35));
 				if (flag35 != flag36)
@@ -1667,9 +1712,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetAutoRestartRequiredNotificationDismissal: " + flag36 + " => " + flag35);
 						registryKey2.SetValue("SetAutoRestartRequiredNotificationDismissal", Convert.ToInt32(flag35), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetAutoRestartRequiredNotificationDismissal", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetAutoRestartRequiredNotificationDismissal': " + writeError.Message, writeError), "SetAutoRestartRequiredNotificationDismissal", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1687,8 +1732,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num15 = (int)registryKey2.GetValue("AutoRestartRequiredNotificationDismissal");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AutoRestartRequiredNotificationDismissal", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AutoRestartRequiredNotificationDismissal", num14));
 				if (num14 != num15)
@@ -1698,9 +1744,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AutoRestartRequiredNotificationDismissal: " + num15 + " => " + num14);
 						registryKey2.SetValue("AutoRestartRequiredNotificationDismissal", num14, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AutoRestartRequiredNotificationDismissal", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AutoRestartRequiredNotificationDismissal': " + writeError.Message, writeError), "AutoRestartRequiredNotificationDismissal", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1718,8 +1764,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag38 = Convert.ToBoolean(registryKey2.GetValue("SetRestartWarningSchd"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetRestartWarningSchd", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetRestartWarningSchd", flag37));
 				if (flag37 != flag38)
@@ -1729,9 +1776,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetRestartWarningSchd: " + flag38 + " => " + flag37);
 						registryKey2.SetValue("SetRestartWarningSchd", Convert.ToInt32(flag37), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetRestartWarningSchd", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetRestartWarningSchd': " + writeError.Message, writeError), "SetRestartWarningSchd", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1749,8 +1796,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num16 = (int)registryKey2.GetValue("ScheduleRestartWarning");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ScheduleRestartWarning", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ScheduleRestartWarning", scheduleRestartWarning));
 				if (scheduleRestartWarning != num16)
@@ -1760,9 +1808,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ScheduleRestartWarning: " + num16 + " => " + scheduleRestartWarning);
 						registryKey2.SetValue("ScheduleRestartWarning", scheduleRestartWarning, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ScheduleRestartWarning", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ScheduleRestartWarning': " + writeError.Message, writeError), "ScheduleRestartWarning", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1780,8 +1828,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num17 = (int)registryKey2.GetValue("ScheduleImminentRestartWarning");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ScheduleImminentRestartWarning", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ScheduleImminentRestartWarning", scheduleImminentRestartWarning));
 				if (scheduleImminentRestartWarning != num17)
@@ -1791,9 +1840,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ScheduleImminentRestartWarning: " + num17 + " => " + scheduleImminentRestartWarning);
 						registryKey2.SetValue("ScheduleImminentRestartWarning", scheduleImminentRestartWarning, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ScheduleImminentRestartWarning", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ScheduleImminentRestartWarning': " + writeError.Message, writeError), "ScheduleImminentRestartWarning", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1811,8 +1860,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag40 = Convert.ToBoolean(registryKey2.GetValue("DeferUpgrade"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DeferUpgrade", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DeferUpgrade", flag39));
 				if (flag39 != flag40)
@@ -1822,9 +1872,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DeferUpgrade: " + flag40 + " => " + flag39);
 						registryKey2.SetValue("DeferUpgrade", Convert.ToInt32(flag39), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DeferUpgrade", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DeferUpgrade': " + writeError.Message, writeError), "DeferUpgrade", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1842,8 +1892,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num18 = (int)registryKey2.GetValue("DeferUpgradePeriod");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DeferUpgradePeriod", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DeferUpgradePeriod", deferUpgradePeriod));
 				if (deferUpgradePeriod != num18)
@@ -1853,9 +1904,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DeferUpgradePeriod: " + num18 + " => " + deferUpgradePeriod);
 						registryKey2.SetValue("DeferUpgradePeriod", deferUpgradePeriod, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DeferUpgradePeriod", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DeferUpgradePeriod': " + writeError.Message, writeError), "DeferUpgradePeriod", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1873,8 +1924,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num19 = (int)registryKey2.GetValue("DeferUpdatePeriod");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "DeferUpdatePeriod", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("DeferUpdatePeriod", deferUpdatePeriod));
 				if (deferUpdatePeriod != num19)
@@ -1884,9 +1936,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " DeferUpdatePeriod: " + num19 + " => " + deferUpdatePeriod);
 						registryKey2.SetValue("DeferUpdatePeriod", deferUpdatePeriod, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "DeferUpdatePeriod", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'DeferUpdatePeriod': " + writeError.Message, writeError), "DeferUpdatePeriod", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1904,8 +1956,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag42 = Convert.ToBoolean(registryKey2.GetValue("PauseDeferrals"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "PauseDeferrals", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("PauseDeferrals", flag41));
 				if (flag41 != flag42)
@@ -1915,9 +1968,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " PauseDeferrals: " + flag42 + " => " + flag41);
 						registryKey2.SetValue("PauseDeferrals", Convert.ToInt32(flag41), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "PauseDeferrals", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'PauseDeferrals': " + writeError.Message, writeError), "PauseDeferrals", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1935,8 +1988,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag44 = Convert.ToBoolean(registryKey2.GetValue("SetUpdateNotificationLevel"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetUpdateNotificationLevel", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetUpdateNotificationLevel", flag43));
 				if (flag43 != flag44)
@@ -1946,9 +2000,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetUpdateNotificationLevel: " + flag44 + " => " + flag43);
 						registryKey2.SetValue("SetUpdateNotificationLevel", Convert.ToInt32(flag43), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetUpdateNotificationLevel", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetUpdateNotificationLevel': " + writeError.Message, writeError), "SetUpdateNotificationLevel", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1966,8 +2020,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num21 = (int)registryKey2.GetValue("UpdateNotificationLevel");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "UpdateNotificationLevel", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("UpdateNotificationLevel", num20));
 				if (num20 != num21)
@@ -1977,9 +2032,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " UpdateNotificationLevel: " + num21 + " => " + num20);
 						registryKey2.SetValue("UpdateNotificationLevel", num20, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "UpdateNotificationLevel", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'UpdateNotificationLevel': " + writeError.Message, writeError), "UpdateNotificationLevel", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -1997,8 +2052,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag46 = Convert.ToBoolean(registryKey2.GetValue("NoAUShutdownOption"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "NoAUShutdownOption", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("NoAUShutdownOption", flag45));
 				if (flag45 != flag46)
@@ -2008,9 +2064,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " NoAUShutdownOption: " + flag46 + " => " + flag45);
 						registryKey2.SetValue("NoAUShutdownOption", Convert.ToInt32(flag45), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "NoAUShutdownOption", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'NoAUShutdownOption': " + writeError.Message, writeError), "NoAUShutdownOption", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2028,8 +2084,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag48 = Convert.ToBoolean(registryKey2.GetValue("AUPowerManagement"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "AUPowerManagement", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("AUPowerManagement", flag47));
 				if (flag47 != flag48)
@@ -2039,9 +2096,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " AUPowerManagement: " + flag48 + " => " + flag47);
 						registryKey2.SetValue("AUPowerManagement", Convert.ToInt32(flag47), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "AUPowerManagement", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'AUPowerManagement': " + writeError.Message, writeError), "AUPowerManagement", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2059,8 +2116,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag50 = Convert.ToBoolean(registryKey2.GetValue("SetDisablePauseUXAccess"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetDisablePauseUXAccess", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetDisablePauseUXAccess", flag49));
 				if (flag49 != flag50)
@@ -2070,9 +2128,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetDisablePauseUXAccess: " + flag50 + " => " + flag49);
 						registryKey2.SetValue("SetDisablePauseUXAccess", Convert.ToInt32(flag49), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetDisablePauseUXAccess", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetDisablePauseUXAccess': " + writeError.Message, writeError), "SetDisablePauseUXAccess", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2090,8 +2148,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag52 = Convert.ToBoolean(registryKey2.GetValue("SetDisableUXWUAccess"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetDisableUXWUAccess", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetDisableUXWUAccess", flag51));
 				if (flag51 != flag52)
@@ -2101,9 +2160,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetDisableUXWUAccess: " + flag52 + " => " + flag51);
 						registryKey2.SetValue("SetDisableUXWUAccess", Convert.ToInt32(flag51), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetDisableUXWUAccess", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetDisableUXWUAccess': " + writeError.Message, writeError), "SetDisableUXWUAccess", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2121,8 +2180,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag54 = Convert.ToBoolean(registryKey3.GetValue("RescheduleWaitTimeEnabled"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "RescheduleWaitTimeEnabled", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("RescheduleWaitTimeEnabledRescheduleWaitTimeEnabled", flag53));
 				if (flag53 != flag54)
@@ -2132,9 +2192,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " RescheduleWaitTimeEnabled: " + flag54 + " => " + flag53);
 						registryKey3.SetValue("RescheduleWaitTimeEnabled", Convert.ToInt32(flag53), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "RescheduleWaitTimeEnabled", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'RescheduleWaitTimeEnabled': " + writeError.Message, writeError), "RescheduleWaitTimeEnabled", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2152,8 +2212,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num22 = (int)registryKey3.GetValue("RescheduleWaitTime");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "RescheduleWaitTime", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("RescheduleWaitTime", rescheduleWaitTime));
 				if (rescheduleWaitTime != num22)
@@ -2163,9 +2224,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " RescheduleWaitTime: " + num22 + " => " + rescheduleWaitTime);
 						registryKey3.SetValue("RescheduleWaitTime", rescheduleWaitTime, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "RescheduleWaitTime", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'RescheduleWaitTime': " + writeError.Message, writeError), "RescheduleWaitTime", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2183,8 +2244,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag56 = Convert.ToBoolean(registryKey2.GetValue("SetActiveHoursMaxRange"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetActiveHoursMaxRange", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetActiveHoursMaxRange", flag55));
 				if (flag55 != flag56)
@@ -2194,9 +2256,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetActiveHoursMaxRange: " + flag56 + " => " + flag55);
 						registryKey2.SetValue("SetActiveHoursMaxRange", Convert.ToInt32(flag55), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetActiveHoursMaxRange", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetActiveHoursMaxRange': " + writeError.Message, writeError), "SetActiveHoursMaxRange", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2214,8 +2276,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num23 = (int)registryKey2.GetValue("ActiveHoursMaxRange");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ActiveHoursMaxRange", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ActiveHoursMaxRange", activeHoursMaxRange));
 				if (activeHoursMaxRange != num23)
@@ -2225,9 +2288,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ActiveHoursMaxRange: " + num23 + " => " + activeHoursMaxRange);
 						registryKey2.SetValue("ActiveHoursMaxRange", activeHoursMaxRange, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ActiveHoursMaxRange", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ActiveHoursMaxRange': " + writeError.Message, writeError), "ActiveHoursMaxRange", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2245,8 +2308,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag58 = Convert.ToBoolean(registryKey3.GetValue("UseUpdateClassPolicySource"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "UseUpdateClassPolicySource", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("UseUpdateClassPolicySource", flag57));
 				if (flag57 != flag58)
@@ -2256,9 +2320,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " UseUpdateClassPolicySource: " + flag58 + " => " + flag57);
 						registryKey3.SetValue("UseUpdateClassPolicySource", Convert.ToInt32(flag57), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "UseUpdateClassPolicySource", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'UseUpdateClassPolicySource': " + writeError.Message, writeError), "UseUpdateClassPolicySource", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2276,8 +2340,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag60 = Convert.ToBoolean(registryKey2.GetValue("SetPolicyDrivenUpdateSourceForFeatureUpdates"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetPolicyDrivenUpdateSourceForFeatureUpdates", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetPolicyDrivenUpdateSourceForFeatureUpdates", flag59));
 				if (flag59 != flag60)
@@ -2287,9 +2352,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetPolicyDrivenUpdateSourceForFeatureUpdates: " + flag60 + " => " + flag59);
 						registryKey2.SetValue("SetPolicyDrivenUpdateSourceForFeatureUpdates", Convert.ToInt32(flag59), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetPolicyDrivenUpdateSourceForFeatureUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetPolicyDrivenUpdateSourceForFeatureUpdates': " + writeError.Message, writeError), "SetPolicyDrivenUpdateSourceForFeatureUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2307,8 +2372,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag62 = Convert.ToBoolean(registryKey2.GetValue("SetPolicyDrivenUpdateSourceForQualityUpdates"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetPolicyDrivenUpdateSourceForQualityUpdates", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetPolicyDrivenUpdateSourceForQualityUpdates", flag61));
 				if (flag61 != flag62)
@@ -2318,9 +2384,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetPolicyDrivenUpdateSourceForQualityUpdates: " + flag62 + " => " + flag61);
 						registryKey2.SetValue("SetPolicyDrivenUpdateSourceForQualityUpdates", Convert.ToInt32(flag61), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetPolicyDrivenUpdateSourceForQualityUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetPolicyDrivenUpdateSourceForQualityUpdates': " + writeError.Message, writeError), "SetPolicyDrivenUpdateSourceForQualityUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2338,8 +2404,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag64 = Convert.ToBoolean(registryKey2.GetValue("SetPolicyDrivenUpdateSourceForDriverUpdates"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetPolicyDrivenUpdateSourceForDriverUpdates", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetPolicyDrivenUpdateSourceForDriverUpdates", flag63));
 				if (flag63 != flag64)
@@ -2349,9 +2416,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetPolicyDrivenUpdateSourceForDriverUpdates: " + flag64 + " => " + flag63);
 						registryKey2.SetValue("SetPolicyDrivenUpdateSourceForDriverUpdates", Convert.ToInt32(flag63), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetPolicyDrivenUpdateSourceForDriverUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetPolicyDrivenUpdateSourceForDriverUpdates': " + writeError.Message, writeError), "SetPolicyDrivenUpdateSourceForDriverUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2369,8 +2436,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag66 = Convert.ToBoolean(registryKey2.GetValue("SetPolicyDrivenUpdateSourceForOtherUpdates"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetPolicyDrivenUpdateSourceForOtherUpdates", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetPolicyDrivenUpdateSourceForOtherUpdates", flag65));
 				if (flag65 != flag66)
@@ -2380,9 +2448,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetPolicyDrivenUpdateSourceForOtherUpdates: " + flag66 + " => " + flag65);
 						registryKey2.SetValue("SetPolicyDrivenUpdateSourceForOtherUpdates", Convert.ToInt32(flag65), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetPolicyDrivenUpdateSourceForOtherUpdates", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetPolicyDrivenUpdateSourceForOtherUpdates': " + writeError.Message, writeError), "SetPolicyDrivenUpdateSourceForOtherUpdates", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2400,8 +2468,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag68 = Convert.ToBoolean(registryKey2.GetValue("SetActiveHours"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetActiveHours", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetActiveHours", flag67));
 				if (flag67 != flag68)
@@ -2411,9 +2480,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetActiveHours: " + flag68 + " => " + flag67);
 						registryKey2.SetValue("SetActiveHours", Convert.ToInt32(flag67), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetActiveHours", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetActiveHours': " + writeError.Message, writeError), "SetActiveHours", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2431,8 +2500,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num24 = (int)registryKey2.GetValue("ActiveHoursStart");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ActiveHoursStart", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ActiveHoursStart", activeHoursStart));
 				if (activeHoursStart != num24)
@@ -2442,9 +2512,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ActiveHoursStart: " + num24 + " => " + activeHoursStart);
 						registryKey2.SetValue("ActiveHoursStart", activeHoursStart, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ActiveHoursStart", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ActiveHoursStart': " + writeError.Message, writeError), "ActiveHoursStart", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2462,8 +2532,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					num25 = (int)registryKey2.GetValue("ActiveHoursEnd");
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "ActiveHoursEnd", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("ActiveHoursEnd", activeHoursEnd));
 				if (activeHoursEnd != num25)
@@ -2473,9 +2544,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " ActiveHoursEnd: " + num25 + " => " + activeHoursEnd);
 						registryKey2.SetValue("ActiveHoursEnd", activeHoursEnd, RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "ActiveHoursEnd", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'ActiveHoursEnd': " + writeError.Message, writeError), "ActiveHoursEnd", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2493,8 +2564,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag70 = Convert.ToBoolean(registryKey2.GetValue("SetAutoRestartNotificationDisable"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetAutoRestartNotificationDisable", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetAutoRestartNotificationDisable", flag69));
 				if (flag69 != flag70)
@@ -2504,9 +2576,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetAutoRestartNotificationDisable: " + flag70 + " => " + flag69);
 						registryKey2.SetValue("SetAutoRestartNotificationDisable", Convert.ToInt32(flag69), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetAutoRestartNotificationDisable", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetAutoRestartNotificationDisable': " + writeError.Message, writeError), "SetAutoRestartNotificationDisable", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2524,8 +2596,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag72 = Convert.ToBoolean(registryKey3.GetValue("EnableFeaturedSoftware"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "EnableFeaturedSoftware", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("EnableFeaturedSoftware", flag71));
 				if (flag71 != flag72)
@@ -2535,9 +2608,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " EnableFeaturedSoftware: " + flag72 + " => " + flag71);
 						registryKey3.SetValue("EnableFeaturedSoftware", Convert.ToInt32(flag71), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "EnableFeaturedSoftware", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'EnableFeaturedSoftware': " + writeError.Message, writeError), "EnableFeaturedSoftware", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}
@@ -2555,8 +2628,9 @@ public class SetWUSettings : PSCmdlet
 				{
 					flag74 = Convert.ToBoolean(registryKey2.GetValue("SetEDURestart"));
 				}
-				catch
+				catch (Exception readError)
 				{
+					WriteReadDebug(text, "SetEDURestart", readError);
 				}
 				pSObject.Properties.Add(new PSNoteProperty("SetEDURestart", flag73));
 				if (flag73 != flag74)
@@ -2566,9 +2640,9 @@ public class SetWUSettings : PSCmdlet
 						WriteVerbose(text + " SetEDURestart: " + flag74 + " => " + flag73);
 						registryKey2.SetValue("SetEDURestart", Convert.ToInt32(flag73), RegistryValueKind.DWord);
 					}
-					catch
+					catch (Exception writeError)
 					{
-						WriteError(new ErrorRecord(new Exception(text + ": Access denied."), "SetEDURestart", ErrorCategory.CloseError, null));
+						WriteError(new ErrorRecord(new Exception(text + ": Failed to set 'SetEDURestart': " + writeError.Message, writeError), "SetEDURestart", ErrorCategory.CloseError, null));
 						WriteDebug(DateTime.Now.ToString() + " Skip to next computer");
 						break;
 					}

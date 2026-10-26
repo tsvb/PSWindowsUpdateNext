@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net8.0-windows runs everywhere; the Windows-only tests skip themselves on other platforms.
+         net472 is added only on Windows: it needs the .NET Framework runtime to execute. It compiles
+         against the reference assemblies the SDK restores from NuGet, so it needs no extra pack. -->
+    <TargetFrameworks>net8.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Windows'))">net472;net8.0-windows</TargetFrameworks>
+    <RootNamespace>PSWindowsUpdateNext.UnitTests</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Same platform-check noise the module suppresses: the module is Windows-only by design. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj" />
+  </ItemGroup>
+
+  <!-- The module compiles against PowerShellStandard and takes the real engine from the host
+       (PrivateAssets=all keeps those references from flowing here), so the tests supply their own. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" />
+    <Reference Include="System.Security" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <PackageReference Include="System.Management.Automation" Version="7.4.6" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

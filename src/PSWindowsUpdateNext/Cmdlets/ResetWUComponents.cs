@@ -155,6 +155,9 @@ public class ResetWUComponents : PSCmdlet
 			ThrowTerminatingError(errorRecord);
 		}
 		WUToolsObj = new WUTools();
+		// WUTools is a cmdlet that is never invoked. Lending it this cmdlet's runtime makes its
+		// warnings and debug messages appear in this cmdlet's streams; without it they are dropped.
+		WUToolsObj.CommandRuntime = CommandRuntime;
 		OutputObj = new Collection<PSObject>();
 		if ((bool)SendReport)
 		{

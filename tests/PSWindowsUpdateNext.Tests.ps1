@@ -4,6 +4,11 @@
     to the folder that holds PSWindowsUpdateNext.psd1.
 #>
 
+# Pester 5 hands variables from BeforeDiscovery and BeforeAll to the It blocks through its own scopes, which
+# PSScriptAnalyzer cannot follow, so it reports them as assigned but never used.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester shares variables between BeforeAll/BeforeDiscovery and It blocks.')]
+param()
+
 BeforeDiscovery {
     # Discovery-time values feed -ForEach; run-time blocks recompute the path (Pester 5 keeps the scopes apart).
     $modulePath = if ($env:PSWU_MODULE_PATH) { $env:PSWU_MODULE_PATH } else { Join-Path $PSScriptRoot '..\out\PSWindowsUpdateNext' }
@@ -53,13 +58,30 @@ Describe 'PSWindowsUpdateNext module' {
     }
 }
 
-Describe 'Desktop console' {
-    BeforeAll {
-        Import-Module $script:manifest -Force -ErrorAction Stop
-        $script:sta = [System.Threading.Thread]::CurrentThread.GetApartmentState() -eq 'STA'
+Describe 'Desktop console' -Tag 'Console' {
+    BeforeDiscovery {
+        # Pester 5 evaluates -Skip while it discovers tests, before any BeforeAll runs, so the apartment
+        # check has to happen here. WPF needs a single-threaded apartment to build a window.
+        $sta = [System.Threading.Thread]::CurrentThread.GetApartmentState() -eq 'STA'
     }
 
-    It 'builds the window from its XAML and theme' -Skip:(-not $script:sta) {
+    BeforeAll {
+        Import-Module $script:manifest -Force -ErrorAction Stop
+    }
+
+    It 'embeds its XAML, theme and row types in the module assembly' {
+        $asm = (Get-Command Get-WUApiVersion).ImplementingType.Assembly
+        $asm.GetManifestResourceNames() | Should -Contain 'PSWindowsUpdateNext.Gui.MainWindow.xaml'
+        $asm.GetManifestResourceNames() | Should -Contain 'PSWindowsUpdateNext.Gui.Theme.xaml'
+        $asm.GetType('PSWindowsUpdateNext.Gui.UpdateRow') | Should -Not -BeNullOrEmpty
+    }
+
+    It 'ships no loose code or XAML next to the console script' {
+        $names = @(Get-ChildItem -LiteralPath (Join-Path $script:modulePath 'Gui') -File | ForEach-Object { $_.Name })
+        $names | Should -Be @('Show-PSWUConsole.ps1')
+    }
+
+    It 'builds the window from its XAML and theme' -Skip:(-not $sta) {
         $window = Show-PSWUConsole -PassThru
         try {
             $window | Should -BeOfType System.Windows.Window
