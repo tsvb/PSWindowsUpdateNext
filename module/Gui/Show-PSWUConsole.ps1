@@ -79,16 +79,20 @@ $script:PSWUConsoleBody = {
     $moduleRoot = Split-Path $guiDir -Parent
     $manifest = Join-Path $moduleRoot 'PSWindowsUpdateNext.psd1'
 
-    if (-not ('PSWindowsUpdateNext.Gui.UpdateRow' -as [type])) {
-        $modelArgs = @{ Path = (Join-Path $guiDir 'Models.cs') }
-        if ($PSEdition -eq 'Core') { $modelArgs.ReferencedAssemblies = @('System.Runtime', 'System.ObjectModel', 'System.ComponentModel.Primitives') }
-        Add-Type @modelArgs
+    # The row types and the XAML live inside the signed PSWindowsUpdateNext.dll, so nothing here is compiled
+    # or parsed from an unsigned file on disk.
+    $asm = [PSWindowsUpdateNext.Gui.UpdateRow].Assembly
+
+    function Get-GuiResource {
+        param([string]$Name)
+        $stream = $asm.GetManifestResourceStream($Name)
+        if (-not $stream) { throw "PSWindowsUpdateNext: embedded resource '$Name' is missing from $($asm.Location)." }
+        $sr = New-Object System.IO.StreamReader ($stream, [System.Text.Encoding]::UTF8)
+        try { $sr.ReadToEnd() } finally { $sr.Dispose() }
     }
 
     # ---------- window ----------
-    $xamlText = Get-Content (Join-Path $guiDir 'MainWindow.xaml') -Raw
-    $themeText = Get-Content (Join-Path $guiDir 'Theme.xaml') -Raw
-    $xamlText = $xamlText.Replace('<!--THEME-->', $themeText)
+    $xamlText = (Get-GuiResource 'PSWindowsUpdateNext.Gui.MainWindow.xaml').Replace('<!--THEME-->', (Get-GuiResource 'PSWindowsUpdateNext.Gui.Theme.xaml'))
     $reader = New-Object System.Xml.XmlNodeReader ([xml]$xamlText)
     $window = [Windows.Markup.XamlReader]::Load($reader)
     $window.MaxHeight = [System.Windows.SystemParameters]::MaximizedPrimaryScreenHeight + 8
@@ -294,9 +298,13 @@ $script:PSWUConsoleBody = {
     $window.Add_StateChanged({ $ui.BtnMax.Content = if ($window.WindowState -eq 'Maximized') { [char]0xE923 } else { [char]0xE922 } })
     $ui.BtnElevate.Add_Click({
         $exe = (Get-Process -Id $PID).Path
-        $cmd = "Import-Module '$manifest'; Show-PSWUConsole"
+        # No -ExecutionPolicy override: the elevated host runs under the policy the administrator configured,
+        # and the signed module loads under RemoteSigned or AllSigned. -EncodedCommand keeps a manifest path
+        # that contains a quote or other special character from breaking the command line.
+        $cmd = "Import-Module -Name '$($manifest.Replace("'", "''"))'; Show-PSWUConsole"
+        $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
         try {
-            Start-Process -FilePath $exe -Verb RunAs -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cmd) | Out-Null
+            Start-Process -FilePath $exe -Verb RunAs -ArgumentList @('-NoProfile', '-EncodedCommand', $encoded) | Out-Null
             $window.Close()
         } catch {
             Show-Message -Text "Could not start an elevated session: $($_.Exception.Message)" -Icon 'Error'

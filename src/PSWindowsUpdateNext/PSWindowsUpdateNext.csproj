@@ -47,4 +47,10 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The console's XAML ships inside the signed DLL; Show-PSWUConsole reads it with GetManifestResourceStream. -->
+    <EmbeddedResource Include="Gui\MainWindow.xaml" LogicalName="PSWindowsUpdateNext.Gui.MainWindow.xaml" />
+    <EmbeddedResource Include="Gui\Theme.xaml" LogicalName="PSWindowsUpdateNext.Gui.Theme.xaml" />
+  </ItemGroup>
+
 </Project>
