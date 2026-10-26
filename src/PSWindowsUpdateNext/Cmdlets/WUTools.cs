@@ -261,8 +261,9 @@ public class WUTools : PSCmdlet
 				serviceController.WaitForStatus(ServiceControllerStatus.Running);
 				return;
 			}
-			catch
+			catch (Exception serviceError)
 			{
+				WriteWarning(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
 				return;
 			}
 		}
@@ -276,8 +277,9 @@ public class WUTools : PSCmdlet
 			serviceController2.Start();
 			serviceController2.WaitForStatus(ServiceControllerStatus.Running);
 		}
-		catch
+		catch (Exception serviceError)
 		{
+			WriteWarning(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
 		}
 	}
 
@@ -301,8 +303,9 @@ public class WUTools : PSCmdlet
 				}
 				return;
 			}
-			catch
+			catch (Exception serviceError)
 			{
+				WriteWarning(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
 				return;
 			}
 		}
@@ -316,8 +319,9 @@ public class WUTools : PSCmdlet
 				serviceController2.WaitForStatus(ServiceControllerStatus.Stopped);
 			}
 		}
-		catch
+		catch (Exception serviceError)
 		{
+			WriteWarning(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
 		}
 	}
 
@@ -341,8 +345,9 @@ public class WUTools : PSCmdlet
 				}
 				return;
 			}
-			catch
+			catch (Exception serviceError)
 			{
+				WriteWarning(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
 				return;
 			}
 		}
@@ -356,8 +361,9 @@ public class WUTools : PSCmdlet
 				serviceController2.WaitForStatus(ServiceControllerStatus.Running);
 			}
 		}
-		catch
+		catch (Exception serviceError)
 		{
+			WriteWarning(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
 		}
 	}
 
@@ -378,8 +384,9 @@ public class WUTools : PSCmdlet
 			process.StartInfo = processStartInfo;
 			process.Start();
 		}
-		catch
+		catch (Exception processError)
 		{
+			WriteWarning("Failed to start '" + FileName + " " + Arguments + "': " + processError.Message);
 		}
 	}
 
@@ -1081,8 +1088,9 @@ public class WUTools : PSCmdlet
 			{
 				pSObject = collection[0];
 			}
-			catch
+			catch (ArgumentOutOfRangeException)
 			{
+				// No result: the module is not installed on the target. Report it as missing, not as a failure.
 				pSObject.Properties.Add(new PSNoteProperty("PSWindowsUpdateNext", null));
 				pSObject.Properties.Add(new PSNoteProperty("PSWUModuleDll", null));
 			}
@@ -1101,14 +1109,7 @@ public class WUTools : PSCmdlet
 	public ErrorRecord CheckPSWUModule(string Computer)
 	{
 		PSObject pSWUModule = GetPSWUModule(Computer);
-		ErrorRecord errorRecord = null;
-		try
-		{
-			errorRecord = (ErrorRecord)pSWUModule.Properties["Error"].Value;
-		}
-		catch
-		{
-		}
+		ErrorRecord errorRecord = pSWUModule.Properties["Error"]?.Value as ErrorRecord;
 		Version version = MinimumPSWUModule();
 		Version version2 = null;
 		if (errorRecord == null)
@@ -1199,8 +1200,9 @@ public class WUTools : PSCmdlet
 				PSObject pSObject = (PSObject)PSSerializer.Deserialize(source);
 				return (Hashtable)pSObject.BaseObject;
 			}
-			catch
+			catch (Exception ex)
 			{
+				WriteWarning("Could not read the saved PSWUSettings from '" + path + "', ignoring it: " + ex.Message);
 			}
 		}
 		return new Hashtable();
@@ -1221,7 +1223,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception ex)
 		{
-			WriteDebug("Something goes wrong: " + ex.Message);
+			WriteWarning("Could not save the PSWUSettings to '" + path + "': " + ex.Message);
 		}
 	}
 
@@ -1254,6 +1256,7 @@ public class WUTools : PSCmdlet
 			}
 			catch
 			{
+				// A property getter that throws (for example a ScriptProperty) must not break the whole report; render an empty cell.
 				return string.Empty;
 			}
 		}
