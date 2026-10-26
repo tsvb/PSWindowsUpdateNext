@@ -187,7 +187,7 @@ public class InvokeWUJob : Cmdlet
 		execAction.Path = "powershell.exe";
 		// -EncodedCommand carries the script verbatim: no quoting rules, no way for a quote inside
 		// -Script to break out of the command line. The readable form is kept in the task description.
-		execAction.Arguments = "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(Script));
+		execAction.Arguments = WUJobCommandLine.BuildArguments(Script);
 		string displayCommand = execAction.Path + " -NoProfile -NonInteractive -Command \"" + Script + "\"";
 		if (TriggerDate != DateTime.MinValue)
 		{

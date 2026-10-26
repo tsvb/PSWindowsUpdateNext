@@ -35,6 +35,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Lets the unit-test project reach the internal helpers (catalog parser, job command line). -->
+    <InternalsVisibleTo Include="PSWindowsUpdateNext.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Reference-only: System.Management.Automation is supplied by the host. -->
     <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
   </ItemGroup>
