@@ -29,3 +29,14 @@ updates:
         update-types:
           - minor
           - patch
+
+  # Test-only packages (xUnit, the test SDK, and the PowerShell SDK used to load cmdlet types).
+  - package-ecosystem: nuget
+    directory: /tests/PSWindowsUpdateNext.UnitTests
+    schedule:
+      interval: weekly
+    groups:
+      test-packages:
+        update-types:
+          - minor
+          - patch
