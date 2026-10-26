@@ -116,7 +116,7 @@ Show-WindowsUpdate, Uninstall-WindowsUpdate, Get-WUList, Get-WUInstall, Clear-WU
 These behaviors are inherited from the original module. They are useful in a managed domain and
 dangerous elsewhere, so they are called out here.
 
-- `Enable-WURemoting` opens firewall rules for DCOM, WMI and remote Task Scheduler, starts Remote Registry, and turns on PowerShell remoting. With `-LocalAccountTokenFilterPolicy` it also sets `LocalAccountTokenFilterPolicy=1`, which disables UAC remote restrictions for local administrator accounts on that machine, and `ForceGuest=0`. It does not change the WinRM TrustedHosts list.
+- `Enable-WURemoting` opens firewall rules for DCOM, WMI and remote Task Scheduler, starts Remote Registry, and turns on PowerShell remoting. With `-LocalAccountTokenFilterPolicy` it also sets `LocalAccountTokenFilterPolicy=1`, which disables UAC remote restrictions for local administrator accounts on that machine, and `ForceGuest=0`. Without the switch it restores the token filter value that `Enable-PSRemoting` sets on computers outside a domain. It does not change the WinRM TrustedHosts list.
 - `Update-WUModule -ComputerName X` copies the module to the remote machine over the administrative share (`\\X\C$\...`), then runs `Enable-WURemoting` there.
 - `Invoke-WUJob` registers a Task Scheduler job that runs as SYSTEM with highest privileges. Anyone who can call it is already an administrator, but the job it creates is powerful.
 - `Reset-WUComponents` stops services, renames `SoftwareDistribution` and `catroot2`, re-registers DLLs, and resets Winsock and WinHTTP proxy settings.

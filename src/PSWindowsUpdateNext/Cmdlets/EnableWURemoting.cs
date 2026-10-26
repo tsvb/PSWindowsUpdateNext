@@ -1,9 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Management;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Text;
 using Microsoft.Win32;
 using NetFwTypeLib;
 
@@ -53,6 +56,8 @@ public class EnableWURemoting : PSCmdlet
 	/// </summary>
 	[Parameter]
 	public SwitchParameter Debuger { get; set; }
+
+	private const string PoliciesSystemKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\";
 
 	private static WUTools WUToolsObj { get; set; }
 
@@ -174,35 +179,54 @@ public class EnableWURemoting : PSCmdlet
 			{
 				WriteDebug(DateTime.Now.ToString() + " Windows Management Instrumentation (WMI) firewall rules are enabled");
 			}
+			// Enable-PSRemoting runs WinRM quick configuration, which also sets LocalAccountTokenFilterPolicy=1 on
+			// computers that are not in a domain. Remember the value so it can be put back when the caller did not
+			// ask for that change.
+			RegistryKey localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
+			object tokenFilterBefore;
+			using (RegistryKey policiesKey = localMachine.OpenSubKey(PoliciesSystemKey))
+			{
+				tokenFilterBefore = policiesKey?.GetValue("LocalAccountTokenFilterPolicy");
+			}
+			try
+			{
+				EnableWindowsPowerShellRemoting();
+			}
+			catch (Exception exception)
+			{
+				WriteError(new ErrorRecord(exception, "PSRemoting", ErrorCategory.ResourceUnavailable, null));
+			}
 			if ((bool)LocalAccountTokenFilterPolicy)
 			{
 				// Both settings only matter for remote access with local accounts, and both weaken it, so they
 				// are applied only when the caller asks for them.
 				WriteVerbose("Set LocalAccountTokenFilterPolicy=1 registry entry");
-				RegistryKey registryKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
-				RegistryKey registryKey2 = registryKey.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\system\\", writable: true);
-				registryKey2.SetValue("LocalAccountTokenFilterPolicy", Convert.ToInt32(1), RegistryValueKind.DWord);
-				WriteVerbose("Set ForceGuest=0 registry entry (local accounts authenticate as themselves)");
-				RegistryKey lsaKey = registryKey.OpenSubKey("SYSTEM\\CurrentControlSet\\Control\\Lsa\\", writable: true);
-				lsaKey.SetValue("ForceGuest", Convert.ToInt32(0), RegistryValueKind.DWord);
-			}
-			try
-			{
-				// Enable-PSRemoting is idempotent. TrustedHosts is deliberately left alone: it is a client-side
-				// list of hosts this computer may send credentials to, and a computer being prepared for remote
-				// management does not need it.
-				WriteVerbose("Enable PSRemoting");
-				using PowerShell powerShell = PowerShell.Create();
-				powerShell.AddScript("Enable-PSRemoting -Force; Start-Service WinRM");
-				powerShell.Invoke();
-				foreach (ErrorRecord remotingError in powerShell.Streams.Error)
+				using (RegistryKey policiesKey = localMachine.OpenSubKey(PoliciesSystemKey, writable: true))
 				{
-					WriteError(remotingError);
+					policiesKey.SetValue("LocalAccountTokenFilterPolicy", Convert.ToInt32(1), RegistryValueKind.DWord);
+				}
+				WriteVerbose("Set ForceGuest=0 registry entry (local accounts authenticate as themselves)");
+				using (RegistryKey lsaKey = localMachine.OpenSubKey("SYSTEM\\CurrentControlSet\\Control\\Lsa\\", writable: true))
+				{
+					lsaKey.SetValue("ForceGuest", Convert.ToInt32(0), RegistryValueKind.DWord);
 				}
 			}
-			catch (Exception exception)
+			else
 			{
-				WriteError(new ErrorRecord(exception, "PSRemoting", ErrorCategory.ResourceUnavailable, null));
+				using RegistryKey policiesKey = localMachine.OpenSubKey(PoliciesSystemKey, writable: true);
+				object tokenFilterAfter = policiesKey?.GetValue("LocalAccountTokenFilterPolicy");
+				if (policiesKey != null && !Equals(tokenFilterBefore, tokenFilterAfter))
+				{
+					WriteVerbose("Restore LocalAccountTokenFilterPolicy, which Enable-PSRemoting changed; use -LocalAccountTokenFilterPolicy to keep it");
+					if (tokenFilterBefore == null)
+					{
+						policiesKey.DeleteValue("LocalAccountTokenFilterPolicy", throwOnMissingValue: false);
+					}
+					else
+					{
+						policiesKey.SetValue("LocalAccountTokenFilterPolicy", tokenFilterBefore, RegistryValueKind.DWord);
+					}
+				}
 			}
 
 			try
@@ -357,5 +381,39 @@ public class EnableWURemoting : PSCmdlet
 	protected override void StopProcessing()
 	{
 		base.StopProcessing();
+	}
+
+	/// <summary>
+	/// Runs Enable-PSRemoting in Windows PowerShell. TrustedHosts is deliberately left alone: it is a client-side
+	/// list of hosts this computer may send credentials to, and a computer being prepared for remote management
+	/// does not need it. Windows PowerShell is used even from PowerShell 7: the module's own remoting connects to
+	/// the Windows PowerShell endpoint, and PowerShell 7's Enable-PSRemoting configures only its own endpoints and
+	/// restarts WinRM on every call.
+	/// </summary>
+	private void EnableWindowsPowerShellRemoting()
+	{
+		string command = "Enable-PSRemoting -Force" + ((bool)WinRMPublic ? " -SkipNetworkProfileCheck" : "") + " -ErrorAction Stop; Start-Service WinRM -ErrorAction Stop";
+		string windowsPowerShell = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
+		WriteVerbose("Enable PSRemoting: " + command);
+		ProcessStartInfo startInfo = new ProcessStartInfo(windowsPowerShell, "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(command)))
+		{
+			UseShellExecute = false,
+			CreateNoWindow = true,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true
+		};
+		using Process process = Process.Start(startInfo);
+		System.Threading.Tasks.Task<string> errorText = process.StandardError.ReadToEndAsync();
+		string outputText = process.StandardOutput.ReadToEnd();
+		process.WaitForExit();
+		if (!string.IsNullOrWhiteSpace(outputText))
+		{
+			WriteVerbose(outputText.Trim());
+		}
+		string errors = errorText.GetAwaiter().GetResult();
+		if (process.ExitCode != 0 || !string.IsNullOrWhiteSpace(errors))
+		{
+			WriteError(new ErrorRecord(new InvalidOperationException("Enable-PSRemoting failed (exit code " + process.ExitCode + "): " + errors.Trim()), "PSRemoting", ErrorCategory.InvalidOperation, null));
+		}
 	}
 }
