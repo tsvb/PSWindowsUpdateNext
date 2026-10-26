@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WUApiVersion.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WUApiVersion
 
 ## SYNOPSIS
 
-Get Windows Update Agent version.
+Gets the Windows Update Agent version.
 
 ## SYNTAX
 
@@ -28,15 +28,37 @@ Get-WUApiVersion [-ComputerName <string[]>] [-SendReport] [-PSWUSettings <hashta
 
 ## DESCRIPTION
 
-Use Get-WUAPIVersion cmdlet to get Windows Update Agent version.
+Reports the version of the Windows Update Agent (WUA) API and its DLL on each computer, together with the version of PSWindowsUpdateNext installed there. The module version properties are empty when the module is not installed on the remote computer.
 
 ## EXAMPLES
+
+### Example 1: Get the agent version on the local computer
+
+```powershell
+Get-WUApiVersion
+```
+
+```output
+ComputerName PSWindowsUpdateNext PSWUModuleDll ApiVersion WuapiDllVersion
+------------ ------------------- ------------- ---------- ---------------
+PC01         3.1.0.0             3.1.0.0       8.0        10.0.22621.2506
+```
+
+Shows the API version, the Windows Update Agent DLL version, and the installed module version.
+
+### Example 2: Get the agent version on several computers
+
+```powershell
+'PC01', 'PC02' | Get-WUApiVersion
+```
+
+Sends the computer names down the pipeline and returns one object per computer.
 
 ## PARAMETERS
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to run against. The default is the local computer. Remote computers are reached over DCOM, so they must allow remote administration; see Enable-WURemoting. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String[]
@@ -79,7 +101,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -100,11 +122,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Specifies the email settings used by -SendReport, as a hashtable. SmtpServer, From, and To are required. Optional keys are Port (default 25), EnableSsl (default $false), Subject, Properties, and Style. Properties is an array of property names to include, '*' for every property of the first result object, or '**' for every property of every result object. Style is Table or List. Keys that you do not supply are read from PSWUSettings.xml in the module folder (see Set-PSWUSettings). The SMTP credential is read from Windows Credential Manager.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -125,9 +143,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the results by email when the cmdlet finishes. The SMTP settings come from -PSWUSettings or from the PSWUSettings.xml file saved by Set-PSWUSettings. If the settings are incomplete, an error is written and no report is sent.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -179,17 +195,20 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String[]
 
-Specify one or more computer names for remote connection.
+You can pipe computer names to ComputerName.
 
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.AgentInfo
 
-OutputType for AgentInfo objects.
+An object with ComputerName, ApiVersion, WuapiDllVersion, PSWindowsUpdateNext, and PSWUModuleDll properties.
 
 ## NOTES
 
+The cmdlet asks for confirmation before it runs when $ConfirmPreference is set to Medium or lower.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WUInstallerStatus](Get-WUInstallerStatus.md)
+- [Get-WULastResults](Get-WULastResults.md)
+- [Update-WUModule](Update-WUModule.md)

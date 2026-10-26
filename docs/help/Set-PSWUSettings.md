@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Set-PSWUSettings.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Set-PSWUSettings
 
 ## SYNOPSIS
 
-Save PSWUSettings.
+Saves the email settings that PSWindowsUpdateNext uses for reports.
 
 ## SYNTAX
 
@@ -30,9 +30,27 @@ Set-PSWUSettings [-Credential <pscredential>] [-SendReport] [-SmtpServer <string
 
 ## DESCRIPTION
 
-Use Set-PSWUSettings save PSWindowsUpdateNext module settings to XML file.
+Stores the SMTP settings used by the -SendReport parameter of the other cmdlets. Server, port, SSL, recipient, sender, subject, properties, and style are saved in PSWUSettings.xml in the module folder (next to PSWindowsUpdateNext.psd1). Only the settings you specify are changed; the others keep their values.
+
+A credential given with -SmtpCredential is saved in Windows Credential Manager under the target PSWindowsUpdateNext. Scheduled tasks run as SYSTEM, which has its own Credential Manager, so the cmdlet also registers a short-lived task through Invoke-WUJob that saves the credential for SYSTEM. The password is passed to that task protected with DPAPI (machine scope) through -SaveAsSystem.
 
 ## EXAMPLES
+
+### Example 1: Use Microsoft 365 as the SMTP server
+
+```powershell
+Set-PSWUSettings -SmtpServer smtp.office365.com -SmtpPort 587 -SmtpEnableSsl $true -SmtpSubject 'Windows Update report' -SmtpTo admins@contoso.com -SmtpFrom wu-reports@contoso.com -SmtpCredential (Get-Credential wu-reports@contoso.com)
+```
+
+Saves the settings and the credential. Cmdlets that you run later with -SendReport use them.
+
+### Example 2: Include every property and use the list layout
+
+```powershell
+Set-PSWUSettings -Properties '**' -Style List
+```
+
+Reports then show every property of every result object as a list.
 
 ## PARAMETERS
 
@@ -60,7 +78,7 @@ HelpMessage: ''
 
 ### -Credential
 
-Specify alternative credential.
+Specifies a user account that has permission to register the task that saves the SMTP credential for SYSTEM. The default is the current user.
 
 ```yaml
 Type: System.Management.Automation.PSCredential
@@ -81,7 +99,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -102,7 +120,7 @@ HelpMessage: ''
 
 ### -Properties
 
-Alternative report message propertie.s
+Specifies which properties of the result objects the report contains and saves it in PSWUSettings.xml. Use '*' for all properties of the first object or '**' for all properties of all objects. To report a list of property names, pass a Properties array in the -PSWUSettings hashtable of the cmdlet that sends the report.
 
 ```yaml
 Type: System.String
@@ -123,7 +141,7 @@ HelpMessage: ''
 
 ### -SaveAsSystem
 
-Invoke-WUJob to save credential as system user
+Used internally. Contains the SMTP credential, protected with DPAPI for the local computer, that the task registered by this cmdlet stores in the Credential Manager of the SYSTEM account. Do not set it yourself.
 
 ```yaml
 Type: System.String
@@ -144,9 +162,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the saved settings by email as a test report after they are saved.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -167,7 +183,7 @@ HelpMessage: ''
 
 ### -SmtpCredential
 
-Save smtp credential to Credential Manager.
+Specifies the credential for the SMTP server and saves it in Windows Credential Manager, for the current user and for SYSTEM.
 
 ```yaml
 Type: System.Management.Automation.PSCredential
@@ -188,7 +204,7 @@ HelpMessage: ''
 
 ### -SmtpEnableSsl
 
-Save enable ssl to PSWUSettings file.
+Specifies whether to use SSL to connect to the SMTP server and saves it in PSWUSettings.xml. Pass a Boolean value, for example -SmtpEnableSsl $true.
 
 ```yaml
 Type: System.Boolean
@@ -209,7 +225,7 @@ HelpMessage: ''
 
 ### -SmtpFrom
 
-Save smtp sernder to PSWUSettings file.
+Specifies the sender address and saves it in PSWUSettings.xml.
 
 ```yaml
 Type: System.String
@@ -230,7 +246,7 @@ HelpMessage: ''
 
 ### -SmtpPort
 
-Save smtp port to PSWUSettings file.
+Specifies the SMTP port and saves it in PSWUSettings.xml.
 
 ```yaml
 Type: System.Int32
@@ -251,7 +267,7 @@ HelpMessage: ''
 
 ### -SmtpServer
 
-Save smtp server to PSWUSettings file.
+Specifies the SMTP server and saves it in PSWUSettings.xml.
 
 ```yaml
 Type: System.String
@@ -272,7 +288,7 @@ HelpMessage: ''
 
 ### -SmtpSubject
 
-Save alternative message subject to PSWUSettings file.
+Specifies the subject of the report email and saves it in PSWUSettings.xml. If you do not set a subject, reports use the computer name, the text 'Windows Update report', and the date.
 
 ```yaml
 Type: System.String
@@ -293,7 +309,7 @@ HelpMessage: ''
 
 ### -SmtpTo
 
-Save smtp recipient to PSWUSettings file.
+Specifies the recipient address and saves it in PSWUSettings.xml.
 
 ```yaml
 Type: System.String
@@ -314,7 +330,7 @@ HelpMessage: ''
 
 ### -Style
 
-Alternative report message format style.
+Specifies how the report presents the results, Table or List, and saves it in PSWUSettings.xml.
 
 ```yaml
 Type: System.String
@@ -366,11 +382,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### None
+
 ## OUTPUTS
+
+### System.Object
+
+A collection with one object per computer that shows the settings that were saved.
 
 ## NOTES
 
+The cmdlet writes a warning when the session is not elevated. -WhatIf and -Confirm are accepted but the cmdlet does not check them, so the settings are always saved. The ComputerName parameter is not available on this cmdlet in the current release; it always saves the settings on the local computer. Email reports use System.Net.Mail.SmtpClient, which Microsoft recommends against for new development.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WindowsUpdate](Get-WindowsUpdate.md)
+- [Invoke-WUJob](Invoke-WUJob.md)

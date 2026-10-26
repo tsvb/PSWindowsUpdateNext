@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WURebootStatus.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WURebootStatus
 
 ## SYNOPSIS
 
-Get Windows Update reboot status.
+Gets the Windows Update reboot status and optionally restarts the computer.
 
 ## SYNTAX
 
@@ -49,15 +49,52 @@ Get-WURebootStatus -CancelReboot [-ComputerName <string[]>] [-SendReport]
 
 ## DESCRIPTION
 
-Use Get-WURebootStatus cmdlet to check if reboot is needed.
+Checks whether a restart is pending because of Windows Update. On the local computer the cmdlet asks the Windows Update Agent; for a remote computer it looks for the RebootRequired key in the Windows Update registry settings.
+
+When a restart is required, the default behavior is to ask whether to restart now. Use -AutoReboot to restart without asking, -ScheduleReboot to restart at a given time, or -Silent to return only True or False and never prompt. -CancelReboot cancels a restart that was scheduled earlier.
 
 ## EXAMPLES
+
+### Example 1: Check whether a restart is required
+
+```powershell
+Get-WURebootStatus
+```
+
+```output
+Reboot is required. Do it now? [Y / N] (default is 'N')
+ComputerName RebootRequired RebootScheduled
+------------ -------------- ---------------
+PC01         True
+```
+
+Reports the status and, because a restart is required, asks whether to restart now.
+
+### Example 2: Schedule the restart
+
+```powershell
+Get-WURebootStatus -ScheduleReboot (Get-Date -Hour 18 -Minute 0 -Second 0)
+```
+
+If a restart is required, it is scheduled for 6:00 PM today.
+
+### Example 3: Return only a Boolean value
+
+```powershell
+if (Get-WURebootStatus -Silent) { 'Restart pending' }
+```
+
+### Example 4: Cancel a scheduled restart
+
+```powershell
+Get-WURebootStatus -CancelReboot
+```
 
 ## PARAMETERS
 
 ### -AutoReboot
 
-Do not ask for reboot if it needed, but do it now.
+Restarts the computer without asking when a restart is required.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -78,7 +115,7 @@ HelpMessage: ''
 
 ### -CancelReboot
 
-Cancel scheduled reboot.
+Cancels a scheduled restart.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -99,7 +136,7 @@ HelpMessage: ''
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to check. The default is the local computer. Remote computers are checked through the remote registry and restarted with shutdown.exe.
 
 ```yaml
 Type: System.String[]
@@ -142,7 +179,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -163,11 +200,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Specifies the email settings used by -SendReport, as a hashtable. SmtpServer, From, and To are required. Optional keys are Port (default 25), EnableSsl (default $false), Subject, Properties, and Style. Properties is an array of property names to include, '*' for every property of the first result object, or '**' for every property of every result object. Style is Table or List. Keys that you do not supply are read from PSWUSettings.xml in the module folder (see Set-PSWUSettings). The SMTP credential is read from Windows Credential Manager.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -188,11 +221,11 @@ HelpMessage: ''
 
 ### -ScheduleReboot
 
-Specify schedule time for reboot.
+Schedules a restart for the given date and time when a restart is required. Any restart that was scheduled earlier is canceled first.
 
 ```yaml
 Type: System.DateTime
-DefaultValue: 01.01.0001 00:00:00
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -209,9 +242,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the results by email when the cmdlet finishes. The SMTP settings come from -PSWUSettings or from the PSWUSettings.xml file saved by Set-PSWUSettings. If the settings are incomplete, an error is written and no report is sent.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -232,7 +263,7 @@ HelpMessage: ''
 
 ### -Silent
 
-Return true/false only.
+Returns only True or False and does not ask whether to restart. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -302,17 +333,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Management.Automation.SwitchParameter
 
-Return true/false only.
+You can pipe a value to -Silent.
 
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.RebootStatus
 
-OutputType for RebootStatus objects.
+An object with ComputerName, RebootRequired, and RebootScheduled properties. With -Silent, a Boolean value (System.Boolean) is returned instead.
 
 ## NOTES
 
+This cmdlet requires an elevated session and stops with an error when the session is not elevated. Restarts run shutdown.exe with the force option (-f), so applications are closed without saving.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WindowsUpdate](Get-WindowsUpdate.md)
+- [Get-WUInstallerStatus](Get-WUInstallerStatus.md)

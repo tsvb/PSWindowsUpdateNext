@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Remove-WUServiceManager.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Remove-WUServiceManager
 
 ## SYNOPSIS
 
-Remove windows update service manager.
+Unregisters a Windows Update service.
 
 ## SYNTAX
 
@@ -28,15 +28,28 @@ Remove-WUServiceManager -ServiceID <string> [-ComputerName <string[]>] [-Schedul
 
 ## DESCRIPTION
 
-Use Remove-WUServiceManager cmdlet to unregister Windows Update Service Manager.
+Removes the registration of an update service from the Windows Update Agent. Use Get-WUServiceManager to find the ServiceID. For a remote computer, or when -ScheduleJob is given, the cmdlet creates a scheduled task through Invoke-WUJob that runs Remove-WUServiceManager on the target. The module must be installed there.
 
 ## EXAMPLES
+
+### Example 1: Unregister Microsoft Update
+
+```powershell
+Remove-WUServiceManager -ServiceID 7971f918-a847-4430-9279-4a52d1efe18d
+```
+
+```output
+Confirm
+Are you sure you want to perform this action?
+Performing the operation "Unregister Windows Update Service Manager: 7971f918-a847-4430-9279-4a52d1efe18d" on target "PC01".
+[Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"):
+```
 
 ## PARAMETERS
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to run against. The default is the local computer. Remote computers are reached over DCOM, so they must allow remote administration; see Enable-WURemoting. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String[]
@@ -79,7 +92,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -100,11 +113,11 @@ HelpMessage: ''
 
 ### -ScheduleJob
 
-Specify schedule time job.
+Runs the removal as a one-time scheduled task at this date and time instead of immediately. The task runs as SYSTEM.
 
 ```yaml
 Type: System.DateTime
-DefaultValue: 01.01.0001 00:00:00
+DefaultValue: None
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
@@ -121,7 +134,7 @@ HelpMessage: ''
 
 ### -ServiceID
 
-Specify ServiceID of Service Manager that you want to remove.
+Specifies the ID of the service to unregister. Use Get-WUServiceManager to list the IDs.
 
 ```yaml
 Type: System.String
@@ -173,13 +186,18 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String[]
 
-Specify one or more computer names for remote connection.
+You can pipe computer names to ComputerName.
 
 ## OUTPUTS
 
+### None
+
 ## NOTES
+
+This cmdlet requires an elevated session and stops with an error when the session is not elevated. It returns no output.
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WUServiceManager](Get-WUServiceManager.md)
+- [Add-WUServiceManager](Add-WUServiceManager.md)
+- [Invoke-WUJob](Invoke-WUJob.md)

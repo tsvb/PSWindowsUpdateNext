@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WUSettings.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WUSettings
 
 ## SYNOPSIS
 
-Get Windows Update Client settings.
+Gets the Windows Update client policy settings.
 
 ## SYNTAX
 
@@ -28,15 +28,38 @@ Get-WUSettings [-ComputerName <string[]>] [-SendReport] [-PSWUSettings <hashtabl
 
 ## DESCRIPTION
 
-Use Get-WUSettings cmdlet to get current configuration of Windows Update Client.
+Reads the Windows Update policy values from HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate and its AU subkey and returns them as one object. The AUOptions and ScheduledInstallDay values are translated to readable text. Nothing is returned, and a verbose message says so, when no policy is configured.
+
+These are the settings that Set-WUSettings writes.
 
 ## EXAMPLES
+
+### Example 1: Get the current policy settings
+
+```powershell
+Get-WUSettings
+```
+
+```output
+ComputerName                  : PC01
+WUServer                      : https://wsus.contoso.com:8531
+WUStatusServer                : https://wsus.contoso.com:8531
+DetectionFrequencyEnabled     : 1
+DetectionFrequency            : 2
+NoAutoUpdate                  : 0
+AUOptions                     : 2 - Notify before download
+ScheduledInstallDay           : 0 - Every Day
+ScheduledInstallTime          : 4
+UseWUServer                   : 1
+```
+
+Only the values that exist in the registry are shown.
 
 ## PARAMETERS
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to run against. The default is the local computer. Remote computers are reached through the remote registry, so the Remote Registry service must be running there; see Enable-WURemoting. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String[]
@@ -79,7 +102,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -100,11 +123,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Specifies the email settings used by -SendReport, as a hashtable. SmtpServer, From, and To are required. Optional keys are Port (default 25), EnableSsl (default $false), Subject, Properties, and Style. Properties is an array of property names to include, '*' for every property of the first result object, or '**' for every property of every result object. Style is Table or List. Keys that you do not supply are read from PSWUSettings.xml in the module folder (see Set-PSWUSettings). The SMTP credential is read from Windows Credential Manager.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -125,9 +144,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the results by email when the cmdlet finishes. The SMTP settings come from -PSWUSettings or from the PSWUSettings.xml file saved by Set-PSWUSettings. If the settings are incomplete, an error is written and no report is sent.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -179,17 +196,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String[]
 
-Specify one or more computer names for remote connection.
+You can pipe computer names to ComputerName.
 
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.WUSettings
 
-OutputType for WUSettings objects.
+An object with ComputerName and one property for each policy value found in the registry.
 
 ## NOTES
 
+The cmdlet asks for confirmation before it runs when $ConfirmPreference is set to Medium or lower.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Set-WUSettings](Set-WUSettings.md)
+- [Get-WUServiceManager](Get-WUServiceManager.md)

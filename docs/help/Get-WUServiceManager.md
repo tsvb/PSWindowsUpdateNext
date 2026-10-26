@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WUServiceManager.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WUServiceManager
 
 ## SYNOPSIS
 
-Get Service Manager configuration.
+Gets the registered Windows Update services.
 
 ## SYNTAX
 
@@ -29,15 +29,35 @@ Get-WUServiceManager [-ComputerName <string[]>] [-Credential <pscredential>] [-S
 
 ## DESCRIPTION
 
-Use Get-WUServiceManager cmdlet to get available configuration of update services.
+Lists the update services that are registered with the Windows Update Agent, such as Windows Update, Microsoft Update, a WSUS server, or an offline scan package. The IsDefaultAUService property marks the service that Automatic Updates uses, and IsManaged marks services that policy manages.
 
 ## EXAMPLES
+
+### Example 1: List the update services
+
+```powershell
+Get-WUServiceManager
+```
+
+```output
+ServiceID                            IsManaged IsDefaultAUService Name
+---------                            --------- ------------------ ----
+9482f4b4-e343-43b6-b170-9a65bc822c77 False     False              Windows Update
+7971f918-a847-4430-9279-4a52d1efe18d False     False              Microsoft Update
+3da21691-e39d-4da6-8a4b-b43877bcb1b7 True      True               Windows Server Update Service
+```
+
+### Example 2: Get one service by its ID
+
+```powershell
+Get-WUServiceManager -ServiceID 7971f918-a847-4430-9279-4a52d1efe18d
+```
 
 ## PARAMETERS
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to run against. The default is the local computer. Remote computers are reached over DCOM, so they must allow remote administration; see Enable-WURemoting. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String[]
@@ -80,7 +100,7 @@ HelpMessage: ''
 
 ### -Credential
 
-Specify alternative credential.
+Specifies a user account that has permission to query the computers. The default is the current user.
 
 ```yaml
 Type: System.Management.Automation.PSCredential
@@ -101,7 +121,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -122,11 +142,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Specifies the email settings used by -SendReport, as a hashtable. SmtpServer, From, and To are required. Optional keys are Port (default 25), EnableSsl (default $false), Subject, Properties, and Style. Properties is an array of property names to include, '*' for every property of the first result object, or '**' for every property of every result object. Style is Table or List. Keys that you do not supply are read from PSWUSettings.xml in the module folder (see Set-PSWUSettings). The SMTP credential is read from Windows Credential Manager.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -147,9 +163,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the results by email when the cmdlet finishes. The SMTP settings come from -PSWUSettings or from the PSWUSettings.xml file saved by Set-PSWUSettings. If the settings are incomplete, an error is written and no report is sent.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -170,7 +184,7 @@ HelpMessage: ''
 
 ### -ServiceID
 
-Get specific Service Manager if it's available.
+Returns only the service with this ID. When omitted, all registered services are returned.
 
 ```yaml
 Type: System.String
@@ -222,17 +236,20 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String[]
 
-Specify one or more computer names for remote connection.
+You can pipe computer names to ComputerName.
 
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.ServiceManager
 
-OutputType for ServiceManager objects.
+An object that wraps the IUpdateService COM object and adds ComputerName.
 
 ## NOTES
 
+The cmdlet writes a warning when the session is not elevated.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Add-WUServiceManager](Add-WUServiceManager.md)
+- [Remove-WUServiceManager](Remove-WUServiceManager.md)
+- [Get-WindowsUpdate](Get-WindowsUpdate.md)

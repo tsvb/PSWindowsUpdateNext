@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WUInstallerStatus.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WUInstallerStatus
 
 ## SYNOPSIS
 
-Get Windows Update Installer status.
+Gets the Windows Update Installer status.
 
 ## SYNTAX
 
@@ -28,9 +28,35 @@ Get-WUInstallerStatus [-SendReport] [-PSWUSettings <hashtable>] [-Silent] [-Debu
 
 ## DESCRIPTION
 
-Use Get-WUInstallerStatus cmdlet to show Windows Update Installer status.
+Reports whether the Windows Update Installer is busy. Check this before you start another installation, because the installer processes one request at a time.
 
 ## EXAMPLES
+
+### Example 1: Check whether the installer is busy
+
+```powershell
+Get-WUInstallerStatus
+```
+
+```output
+ComputerName IsBusy
+------------ ------
+PC01         False
+```
+
+Returns an object with the computer name and the IsBusy flag.
+
+### Example 2: Return only a Boolean value
+
+```powershell
+Get-WUInstallerStatus -Silent
+```
+
+```output
+False
+```
+
+With -Silent the cmdlet returns True when the installer is busy and False when it is free.
 
 ## PARAMETERS
 
@@ -58,7 +84,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -79,11 +105,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Specifies the email settings used by -SendReport, as a hashtable. SmtpServer, From, and To are required. Optional keys are Port (default 25), EnableSsl (default $false), Subject, Properties, and Style. Properties is an array of property names to include, '*' for every property of the first result object, or '**' for every property of every result object. Style is Table or List. Keys that you do not supply are read from PSWUSettings.xml in the module folder (see Set-PSWUSettings). The SMTP credential is read from Windows Credential Manager.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -104,9 +126,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the results by email when the cmdlet finishes. The SMTP settings come from -PSWUSettings or from the PSWUSettings.xml file saved by Set-PSWUSettings. If the settings are incomplete, an error is written and no report is sent.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -127,7 +147,7 @@ HelpMessage: ''
 
 ### -Silent
 
-Return true/false only.
+Returns only True (the installer is busy) or False (the installer is free) instead of an object.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -177,15 +197,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+### None
+
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.InstallerStatus
 
-OutputType for InstallerStatus objects.
+An object with ComputerName and IsBusy properties. With -Silent, a Boolean value (System.Boolean) is returned instead.
 
 ## NOTES
 
+The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always checks the local computer. The cmdlet asks for confirmation before it runs when $ConfirmPreference is set to Medium or lower.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WURebootStatus](Get-WURebootStatus.md)
+- [Get-WindowsUpdate](Get-WindowsUpdate.md)

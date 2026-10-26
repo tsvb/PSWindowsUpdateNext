@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WUJob.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WUJob
 
 ## SYNOPSIS
 
-Get invoked WUJob.
+Gets the Task Scheduler jobs created by the module.
 
 ## SYNTAX
 
@@ -26,17 +26,42 @@ Get-WUJob [-ComputerName <string[]>] [-Credential <pscredential>] [-PSWUSettings
 
 ## ALIASES
 
+This cmdlet has the following aliases,
+  Clear-WUJob
+
 ## DESCRIPTION
 
-Use Get-WUJob cmdlet to get invoked WUJob in Task Scheduler.
+Lists the scheduled tasks that PSWindowsUpdateNext registered, for example through Invoke-WUJob, or through Get-WindowsUpdate with -ScheduleJob or when it targets a remote computer. Only tasks whose source is PSWindowsUpdateNext are returned, unless you name a task with -TaskName.
+
+The alias Clear-WUJob runs the same cmdlet with the clean-up behavior described in the notes.
 
 ## EXAMPLES
+
+### Example 1: Get the jobs on a remote computer
+
+```powershell
+Get-WUJob -ComputerName PC02
+```
+
+```output
+ComputerName Name                 Action
+------------ ----                 ------
+PC02         PSWindowsUpdateNext  powershell.exe -NoProfile -NonInteractive -EncodedCommand ...
+```
+
+Returns each registered job together with its state.
+
+### Example 2: Get a specific job
+
+```powershell
+Get-WUJob -TaskName PSWindowsUpdateNext_History
+```
 
 ## PARAMETERS
 
 ### -ClearExpired
 
-Clear expired WUJob.
+Selects the expired-job clean-up. See the notes for how the current release handles this switch.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -57,7 +82,7 @@ HelpMessage: ''
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to run against. The default is the local computer. Remote computers are reached through the Task Scheduler service, so they must allow remote scheduled-task management; see Enable-WURemoting. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String[]
@@ -100,7 +125,7 @@ HelpMessage: ''
 
 ### -Credential
 
-Specify alternative credential.
+Specifies a user account that has permission to connect to the computers and read their Task Scheduler. The default is the current user.
 
 ```yaml
 Type: System.Management.Automation.PSCredential
@@ -121,7 +146,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -142,11 +167,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Not used. Get-WUJob has no -SendReport parameter, so it never sends a report.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -167,7 +188,7 @@ HelpMessage: ''
 
 ### -TaskName
 
-Specify custom name for Task Scheduler job. Default is 'PSWindowsUpdateNext'.
+Specifies the name of one job to return. When omitted, all jobs created by PSWindowsUpdateNext are returned.
 
 ```yaml
 Type: System.String
@@ -219,17 +240,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String[]
 
-Specify one or more computer names for remote connection.
+You can pipe computer names to ComputerName.
 
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.WUJob
 
-OutputType for WUJob.
+An object that wraps the IRegisteredTask COM object and adds ComputerName and StateName (Disabled, Queued, Ready, Running, or Unknown).
 
 ## NOTES
 
+After it lists the jobs, the cmdlet deletes the module's jobs whose trigger end boundary has passed and that are not running. In the current release this clean-up is skipped when -ClearExpired is bound explicitly and runs otherwise, including when you call the Clear-WUJob alias. The deletion honors -WhatIf and -Confirm. The cmdlet writes a warning when the session is not elevated.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Invoke-WUJob](Invoke-WUJob.md)
+- [Get-WindowsUpdate](Get-WindowsUpdate.md)

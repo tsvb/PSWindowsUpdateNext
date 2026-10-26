@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Get-WUOfflineMSU.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Get-WUOfflineMSU
 
 ## SYNOPSIS
 
-Get offline MSU package.
+Downloads update packages from the Microsoft Update Catalog.
 
 ## SYNTAX
 
@@ -28,15 +28,61 @@ Get-WUOfflineMSU -KBArticleID <string> -Destination <string> [-AcceptAll] [-Skip
 
 ## DESCRIPTION
 
-Use Get-WUOfflineMSU cmdlet to download MSU package from Microsoft Update Catalog website.
+Searches the Microsoft Update Catalog (catalog.update.microsoft.com) for a KB article, lists the catalog entries it finds, and downloads every file of the entries you accept. Use it to get .msu and .cab packages for computers that cannot reach Windows Update. The cmdlet asks for confirmation for each entry unless you use -AcceptAll; use -UpdateID to limit the search to chosen entries.
+
+The cmdlet first returns every catalog entry it considered, with Result set to Accepted or Rejected, then returns each entry again after the download with Result set to Downloaded, Canceled, or Error. The Files property lists every file of an entry with its Url, FileName, Digest, and, after the download, Path and Sha256.
+
+Files are downloaded with BITS into -Destination, which is created if it does not exist; existing files with the same name are overwritten. Only HTTPS URLs on windowsupdate.com or microsoft.com hosts are accepted. Each file is checked against the SHA-1 digest that the Catalog publishes, and its Authenticode signature is verified. A file that fails the digest check is deleted. A file whose signature fails verification or does not chain to a Microsoft root is also deleted, unless you use -SkipSignatureCheck.
 
 ## EXAMPLES
+
+### Example 1: Download the packages for a KB article
+
+```powershell
+Get-WUOfflineMSU -KBArticleID KB5034123 -Destination C:\Updates
+```
+
+```output
+Confirm
+Are you sure you want to perform this action?
+Performing the operation "(1/16/2024 2:27:17 PM) 2024-01 Cumulative Update for Windows 11 Version 23H2 for x64-based Systems (KB5034123) [580.4 MB]" on target "PC01".
+[Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"): Y
+
+X Result     Title                                                              LastUpdated Size
+- ------     -----                                                              ----------- ----
+1 Accepted   2024-01 Cumulative Update for Windows 11 Version 23H2 for x64-ba... 1/9/2024    580.4 MB
+2 Downloaded 2024-01 Cumulative Update for Windows 11 Version 23H2 for x64-ba... 1/9/2024    580.4 MB
+```
+
+The KB number is accepted with or without the KB prefix. The answer to the prompt applies to one catalog entry; the cmdlet asks again for each entry that matches.
+
+### Example 2: Download one catalog entry without prompts
+
+```powershell
+Get-WUOfflineMSU -KBArticleID 5034123 -Destination C:\Updates -UpdateID 2fbbe4d8-3a5f-4b0e-9d16-0c2b1d8f2a11 -AcceptAll
+```
+
+The update ID is the Identity of the entry. Run the cmdlet with -WhatIf to list the entries and their Identity values without downloading anything.
+
+### Example 3: Download packages for several KB articles
+
+```powershell
+'KB5034123', 'KB5034765' | Get-WUOfflineMSU -Destination C:\Updates -AcceptAll
+```
+
+### Example 4: Keep a package whose signature check fails
+
+```powershell
+Get-WUOfflineMSU -KBArticleID KB5034123 -Destination C:\Updates -AcceptAll -SkipSignatureCheck
+```
+
+Keeps downloaded files even if their Authenticode signature fails verification or does not chain to a Microsoft root. The SHA-1 digest check still applies.
 
 ## PARAMETERS
 
 ### -AcceptAll
 
-Do not ask confirmation for download updates.
+Downloads every catalog entry that matches without asking for confirmation.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -79,7 +125,7 @@ HelpMessage: ''
 
 ### -Destination
 
-Destination for downloaded files.
+Specifies the folder to download the files to. The folder is created if it does not exist. Existing files with the same name are overwritten.
 
 ```yaml
 Type: System.String
@@ -100,7 +146,7 @@ HelpMessage: ''
 
 ### -KBArticleID
 
-Finds updates that contain a KBArticleID.
+Specifies the KB article number to search for, with or without the KB prefix, for example KB5034123 or 5034123. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String
@@ -121,7 +167,7 @@ HelpMessage: ''
 
 ### -SkipSignatureCheck
 
-{{ Fill SkipSignatureCheck Description }}
+Keeps downloaded files whose Authenticode signature fails verification or does not chain to a Microsoft root, instead of deleting them. A warning is written for each file that is kept. The SHA-1 digest check still applies: a file that does not match the digest published by the Catalog is always deleted. Use this switch only for packages that you have verified in another way.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -142,7 +188,7 @@ HelpMessage: ''
 
 ### -UpdateID
 
-{{ Fill UpdateID Description }}
+Limits the search results to the catalog entries that have these update IDs. The update ID is the GUID in the Identity property of an entry. Combine it with -AcceptAll to download a chosen subset without prompts. The comparison is not case sensitive.
 
 ```yaml
 Type: System.String[]
@@ -194,13 +240,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String
 
-Finds updates that contain a KBArticleID.
+You can pipe KB article numbers to KBArticleID.
 
 ## OUTPUTS
 
+### PSWindowsUpdateNext.OfflineMSU
+
+A catalog entry with X, Identity, Title, Product, Classification, LastUpdated, Version, Size, OriginalSize, ChooseResult, Status, Result, Files, DownloadUrl, and FileName properties. After the download it also has DownloadResult.
+
 ## NOTES
+
+The cmdlet writes a warning when the session is not elevated. It has a confirmation impact of High, so it asks for confirmation for each catalog entry. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always downloads to the local computer. The cmdlet reads the HTML of the Catalog pages directly; it does not use Internet Explorer or the MSHTML engine.
 
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WindowsUpdate](Get-WindowsUpdate.md)
+- [Get-WUHistory](Get-WUHistory.md)

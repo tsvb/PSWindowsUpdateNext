@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: PSWindowsUpdateNext.dll-Help.xml
-HelpUri: 
+HelpUri: https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Set-WUSettings.md
 Locale: en-US
 Module Name: PSWindowsUpdateNext
 ms.date: 10/26/2026
@@ -13,7 +13,7 @@ title: Set-WUSettings
 
 ## SYNOPSIS
 
-Set Windows Update Client settings.
+Sets the Windows Update client policy settings.
 
 ## SYNTAX
 
@@ -51,9 +51,50 @@ Set-WUSettings [-ComputerName <string[]>] [-SendReport] [-PSWUSettings <hashtabl
 
 ## DESCRIPTION
 
-Use Set-WUSettings cmdlet to Set configuration of Windows Update Client.
+Writes Windows Update policy values to the registry on the local or a remote computer, under HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate and its AU subkey. The keys are created if they do not exist. Most parameters write the registry value that has the same name; -NotificationLevel writes AUOptions. Get-WUSettings reads the same values.
+
+Only the settings you specify are changed. A switch parameter such as -NoAutoUpdate writes 1; -NoAutoUpdate:$false writes 0. Many policies come in pairs: a Set... or ...Enabled switch turns the policy on, and a second parameter holds its value, for example -SetActiveHours with -ActiveHoursStart and -ActiveHoursEnd.
+
+Group Policy overrides these values on the next policy refresh. The cmdlet reports the settings that it changed.
 
 ## EXAMPLES
+
+### Example 1: Include recommended updates
+
+```powershell
+Set-WUSettings -IncludeRecommendedUpdates
+```
+
+```output
+Confirm
+Are you sure you want to perform this action?
+Performing the operation "Set Windows Update settings" on target "PC01".
+[Y] Yes  [A] Yes to All  [N] No  [L] No to All  [S] Suspend  [?] Help (default is "Y"): Y
+
+ComputerName IncludeRecommendedUpdates
+------------ -------------------------
+PC01         True
+```
+
+### Example 2: Pin feature updates to a release
+
+```powershell
+Set-WUSettings -TargetReleaseVersion -TargetReleaseVersionInfo 23H2 -ProductVersion 'Windows 11' -Confirm:$false
+```
+
+The computer stays on Windows 11 version 23H2 and receives quality updates, but not the next Feature update.
+
+### Example 3: Notify before download on a remote computer
+
+```powershell
+Set-WUSettings -ComputerName PC02 -NotificationLevel 'Notify before download'
+```
+
+### Example 4: Restrict automatic restarts during working hours
+
+```powershell
+Set-WUSettings -SetActiveHours -ActiveHoursStart 8 -ActiveHoursEnd 18
+```
 
 ## PARAMETERS
 
@@ -84,7 +125,7 @@ HelpMessage: ''
 
 ### -ActiveHoursEnd
 
-If you enable this policy, the PC will not automatically restart after updates during active hours. The PC will attempt to restart outside of active hours.
+Sets the hour at which active hours end (0 to 23). During active hours the PC does not restart automatically after updates. Use it together with -SetActiveHours and -ActiveHoursStart.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -107,7 +148,7 @@ HelpMessage: ''
 
 ### -ActiveHoursMaxRange
 
-Enable this policy to specify the maximum number of hours from the start time that users can set their active hours. The max active hours range can be set between 8 and 18 hours.
+Sets the maximum number of hours, from the start time, that users can set as their active hours (8 to 18). Use it together with -SetActiveHoursMaxRange.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -130,7 +171,7 @@ HelpMessage: ''
 
 ### -ActiveHoursStart
 
-If you enable this policy, the PC will not automatically restart after updates during active hours. The PC will attempt to restart outside of active hours.
+Sets the hour at which active hours start (0 to 23). During active hours the PC does not restart automatically after updates. Use it together with -SetActiveHours and -ActiveHoursEnd.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -176,7 +217,7 @@ HelpMessage: ''
 
 ### -AlwaysAutoRebootAtScheduledTime
 
-If you enable this policy, a restart timer will always begin immediately after Windows Update installs important updates, instead of first notifying users on the login screen for at least two days..
+Turns on the policy that starts a restart timer immediately after Windows Update installs important updates, instead of first notifying users on the sign-in screen for at least two days. Specify the length with -AlwaysAutoRebootAtScheduledTimeMinutes.
 
 Supported on: At least Windows Server 2012, Windows 8 or Windows RT
 
@@ -199,9 +240,9 @@ HelpMessage: ''
 
 ### -AlwaysAutoRebootAtScheduledTimeMinutes
 
-The restart timer can be configured to start with any value from 15 to 180 minutes. When the timer runs out, the restart will proceed even if the PC has signed-in users.
+Sets the restart timer, in minutes (15 to 180). When the timer runs out, the restart proceeds even if the PC has signed-in users. Use it together with -AlwaysAutoRebootAtScheduledTime.
 
-Supported on: At least Windows Server 2012, Windows 8 or Windows RT​
+Supported on: At least Windows Server 2012, Windows 8 or Windows RT
 
 ```yaml
 Type: System.Int32
@@ -268,7 +309,7 @@ HelpMessage: ''
 
 ### -AutoRestartNotificationSchedule
 
-Specifies the type of notification used when notifying the user about a scheduled restart to install updates.
+Sets how long, in minutes, before the restart the reminder notification appears. Valid values are 15, 30, 60, 120, and 240. Use it together with -SetAutoRestartNotificationConfig.
 
 Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
@@ -296,7 +337,7 @@ HelpMessage: ''
 
 ### -AutoRestartRequiredNotificationDismissal
 
-Enable this policy to specify the method by which the auto-restart required notification is dismissed. When a restart is required to install updates, the auto-restart required notification is displayed. By default, the notification is automatically dismissed after 25 seconds.
+Sets how the auto-restart required notification is dismissed: 'Auto' dismisses it after 25 seconds, 'User Action' keeps it until the user dismisses it. Use it together with -SetAutoRestartRequiredNotificationDismissal.
 
 Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
@@ -321,7 +362,7 @@ HelpMessage: ''
 
 ### -ComputerName
 
-Specify one or more computer names for remote connection.
+Specifies one or more computers to run against. The default is the local computer. Remote computers are reached through the remote registry, so the Remote Registry service must be running there; see Enable-WURemoting. Accepts pipeline input by value and by property name.
 
 ```yaml
 Type: System.String[]
@@ -364,7 +405,7 @@ HelpMessage: ''
 
 ### -Debuger
 
-Debuger return original exceptions.
+Returns the original exception instead of the module's short error message when an operation fails. Set $DebugPreference to 'Continue' for more diagnostic output.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -385,9 +426,9 @@ HelpMessage: ''
 
 ### -DeferFeatureUpdatesPeriodInDays
 
-Enable this policy to specify when to receive Feature Updates.
+Sets how many days Feature updates are deferred (0 to 365). The cmdlet also turns on the policy that defers Feature updates.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
@@ -408,9 +449,9 @@ HelpMessage: ''
 
 ### -DeferQualityUpdatesPeriodInDays
 
-Enable this policy to specify when to receive quality updates.
+Sets how many days quality updates are deferred (0 to 30). The cmdlet also turns on the policy that defers quality updates.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
@@ -433,7 +474,7 @@ HelpMessage: ''
 
 Allows IT Admins to specify update delays for up to four weeks. Supported values are 0-4, which refers to the number of weeks to defer updates.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
@@ -456,7 +497,7 @@ HelpMessage: ''
 
 You can also choose to delay updates for up to one month. If you do not delay updates, your PC will remain up to date with security updates as they become available.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -479,7 +520,7 @@ HelpMessage: ''
 
 Allows IT Admins to specify additional upgrade delays for up to 8 months. Supported values are 0-8, which refers to the number of months to defer upgrades.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Int32
@@ -500,7 +541,7 @@ HelpMessage: ''
 
 ### -DetectionFrequency
 
-Time between detection cycles. Time in hours (1–22).
+Sets the time between detection cycles, in hours (1 to 22). Use it together with -DetectionFrequencyEnabled.
 
 Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT
 
@@ -571,7 +612,7 @@ HelpMessage: ''
 
 This policy setting specifies that a Windows Update for Business device should skip safeguards.
 
-Supported on: At least Windows Server, Windows 10 Version 1903​
+Supported on: At least Windows Server, Windows 10 Version 1903
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -594,7 +635,7 @@ HelpMessage: ''
 
 This policy setting allows you to control whether non-administrative users will receive update notifications based on the "Configure Automatic Updates" policy setting.
 
-Supported on: At least Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 through Windows 8.1 or Windows Server 2012 R2 with most current service pack. Not supported on Windows 10 and above..
+Supported on: At least Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 through Windows 8.1 or Windows Server 2012 R2 with most current service pack. Not supported on Windows 10 and above.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -617,7 +658,7 @@ HelpMessage: ''
 
 This policy setting allows you to control whether users see detailed enhanced notification messages about featured software from the Microsoft Update service.
 
-Supported on: Windows Server 2008, Windows 7, and Windows Vista​
+Supported on: Windows Server 2008, Windows 7, and Windows Vista
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -661,17 +702,9 @@ HelpMessage: ''
 
 ### -ManagePreviewBuilds
 
-Enable this policy to manage which updates you receive prior to the update being released to the world.
+Controls which updates the computer receives before they are released to the world. Valid values are 0 (disable Preview builds), 1 (disable Preview builds once the next release is public), 2 (enable Preview builds), and 3 (the Preview builds setting is left to the user, which is the default of the policy).
 
-0	Disable Preview builds.
-
-1	Disable Preview builds once the next release is public.
-
-2	Enable Preview builds.
-
-3 (Default) Preview builds is left to user selection.
-
-Supported on: At least Windows Server, Windows 10 Version 1709​
+Supported on: At least Windows Server, Windows 10 Version 1709
 
 ```yaml
 Type: System.Int32
@@ -717,7 +750,7 @@ HelpMessage: ''
 
 Logged-on user can decide whether to restart the client computer.
 
-Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3​
+Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -740,7 +773,7 @@ HelpMessage: ''
 
 Enable/Disable Automatic Updates.
 
-Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 Option 7 only supported on servers of at least Windows Server 2016 edition​
+Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 Option 7 only supported on servers of at least Windows Server 2016 edition
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -761,9 +794,9 @@ HelpMessage: ''
 
 ### -NotificationLevel
 
-Notify mode: "Not configured", "Disabled", "Notify before download", "Notify before installation", "Scheduled installation", "Users configure"
+Sets the Automatic Updates notification mode (the AUOptions policy value). Valid values are 'Not configured', 'Disabled', 'Notify before download', 'Notify before installation', 'Scheduled installation', and 'Users configure'. This parameter has the alias AUOptions.
 
-Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 Option 7 only supported on servers of at least Windows Server 2016 edition​
+Supported on: Windows XP Professional Service Pack 1 or later, and Windows 2000 Service Pack 3 or later. 'Users configure' is supported only on Windows Server 2016 and later.
 
 ```yaml
 Type: System.String
@@ -793,7 +826,7 @@ HelpMessage: ''
 
 Allows IT Admins to pause updates and upgrades for up to 5 weeks.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -814,9 +847,9 @@ HelpMessage: ''
 
 ### -ProductVersion
 
-ProductVersion allow to control maximum version of Feature updates. For example "Windows 11" or "11" or "Windows 10".
+Sets the product for which the maximum Feature update version applies, for example 'Windows 11', '11', or 'Windows 10'. Use it together with -TargetReleaseVersion and -TargetReleaseVersionInfo.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.String
@@ -837,11 +870,7 @@ HelpMessage: ''
 
 ### -PSWUSettings
 
-Required parameter for -SendReport.
-
-Passes the parameters (as hashtable) necessary to send the report: \r\n@{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25];[Subject="Alternative Subject"];[Properties="Alternative object properties"];[Style="Table|List"]}
-
-Send parameters can also be saved to a PSWUSettings.xml file in ModuleBase path: \r\nExport-Clixml @{SmtpServer="your.smtp.server";From="sender@email.address";To="recipient@email.address";[Port=25]}"
+Specifies the email settings used by -SendReport, as a hashtable. SmtpServer, From, and To are required. Optional keys are Port (default 25), EnableSsl (default $false), Subject, Properties, and Style. Properties is an array of property names to include, '*' for every property of the first result object, or '**' for every property of every result object. Style is Table or List. Keys that you do not supply are read from PSWUSettings.xml in the module folder (see Set-PSWUSettings). The SMTP credential is read from Windows Credential Manager.
 
 ```yaml
 Type: System.Collections.Hashtable
@@ -862,9 +891,9 @@ HelpMessage: ''
 
 ### -RebootRelaunchTimeout
 
-Time between prompts for a scheduled restart. Time in minutes (1–1440).
+Sets the time between prompts for a scheduled restart, in minutes (1 to 1440). Use it together with -RebootRelaunchTimeoutEnabled.
 
-Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1 , Windows 2000 SP4, Windows 2000 SP3
+Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1, Windows 2000 SP4, Windows 2000 SP3
 
 ```yaml
 Type: System.Int32
@@ -885,9 +914,9 @@ HelpMessage: ''
 
 ### -RebootRelaunchTimeoutEnabled
 
-Specifies the amount of time for Automatic Updates to wait before prompting again with a scheduled restart.
+Turns on the policy that sets the time Automatic Updates waits before it prompts again for a scheduled restart. Specify the time with -RebootRelaunchTimeout.
 
-Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1 , Windows 2000 SP4, Windows 2000 SP3
+Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1, Windows 2000 SP4, Windows 2000 SP3
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -908,9 +937,9 @@ HelpMessage: ''
 
 ### -RebootWarningTimeout
 
-Length, in minutes, of the restart warning countdown after updates have been installed that have a deadline or scheduled updates. Time in minutes (1–30).
+Sets the length of the restart warning countdown, in minutes (1 to 30), after updates with a deadline or scheduled updates were installed. Use it together with -RebootWarningTimeoutEnabled.
 
-Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1 , Windows 2000 SP4, Windows 2000 SP3​
+Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1, Windows 2000 SP4, Windows 2000 SP3
 
 ```yaml
 Type: System.Int32
@@ -931,9 +960,9 @@ HelpMessage: ''
 
 ### -RebootWarningTimeoutEnabled
 
-Enable/Disable RebootWarningTimeout.
+Turns on the policy that sets the restart warning countdown. Specify the length with -RebootWarningTimeout.
 
-Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1 , Windows 2000 SP4, Windows 2000 SP3​
+Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1, Windows 2000 SP4, Windows 2000 SP3
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -954,9 +983,9 @@ HelpMessage: ''
 
 ### -RescheduleWaitTime
 
-Specifies the amount of time for Automatic Updates to wait, following system startup, before proceeding with a scheduled installation that was missed previously.
+Sets how long, in minutes (1 to 60), Automatic Updates waits after system startup before it runs a scheduled installation that was missed. Use it together with -RescheduleWaitTimeEnabled.
 
-Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1 , Windows 2000 SP4, Windows 2000 SP3
+Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1, Windows 2000 SP4, Windows 2000 SP3
 
 ```yaml
 Type: System.Int32
@@ -977,9 +1006,9 @@ HelpMessage: ''
 
 ### -RescheduleWaitTimeEnabled
 
-Specifies the amount of time for Automatic Updates to wait, following system startup, before proceeding with a scheduled installation that was missed previously.
+Turns on the policy that sets how long Automatic Updates waits after startup before it runs a missed scheduled installation. Specify the time with -RescheduleWaitTime.
 
-Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1 , Windows 2000 SP4, Windows 2000 SP3
+Supported on: Windows 7, Windows Server 2008 R2, Windows Vista, Windows Server 2003, Windows XP SP2, Windows XP SP1, Windows 2000 SP4, Windows 2000 SP3
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1000,9 +1029,9 @@ HelpMessage: ''
 
 ### -ScheduledInstallDay
 
-Scheduled day of install: "Every day", "Every Sunday", "Every Monday", "Every Tuesday", "Every Wednesday", "Every Thursday", ""Every Friday", "EverySaturday". Only valid if NotificationLevel (AUOptions) = "Scheduled installation"
+Sets the day on which Automatic Updates installs updates. Valid values are 'Every Day', 'Every Sunday', 'Every Monday', 'Every Tuesday', 'Every Wednesday', 'Every Thursday', 'Every Friday', and 'EverySaturday'. It is used only when NotificationLevel is 'Scheduled installation'.
 
-Starting with Windows 8 and Windows Server 2012, ScheduledInstallationDay are not supported and will return unreliable values.If you try to modify these properties, the operation will appear to succeed but will have no effect.
+Starting with Windows 8 and Windows Server 2012, the Windows Update Agent no longer reports this value reliably. The operation appears to succeed but has no effect.
 
 ```yaml
 Type: System.String
@@ -1031,9 +1060,9 @@ HelpMessage: ''
 
 ### -ScheduledInstallTime
 
-Scheduled time of install in 24-hour format(0–23).
+Sets the hour at which Automatic Updates installs updates, in 24-hour format (0 to 23). It is used only when NotificationLevel is 'Scheduled installation'.
 
-Starting with Windows 8 and Windows Server 2012, ScheduledInstallTime are not supported and will return unreliable values.If you try to modify these properties, the operation will appear to succeed but will have no effect.
+Starting with Windows 8 and Windows Server 2012, the Windows Update Agent no longer reports this value reliably. The operation appears to succeed but has no effect.
 
 ```yaml
 Type: System.Int32
@@ -1054,7 +1083,7 @@ HelpMessage: ''
 
 ### -ScheduleImminentRestartWarning
 
-Enable this policy to control when notifications are displayed to warn users about a scheduled restart for the update installation deadline. 15 Minutes (Default), 30 Minutes or 60 Minutes.
+Sets the period, in minutes, for the final warning that a restart is imminent. Valid values are 15 (the default of the policy), 30, and 60. Use it together with -SetRestartWarningSchd.
 
 Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
@@ -1080,7 +1109,7 @@ HelpMessage: ''
 
 ### -ScheduleRestartWarning
 
-Enable this policy to control when notifications are displayed to warn users about a scheduled restart for the update installation deadline. 2 Hours, 4 Hours (Default), 8 Hours, 12 Hours, 24 Hours.
+Sets the period, in hours, for the warning notification about a scheduled restart. Valid values are 2, 4 (the default of the policy), 8, 12, and 24. Use it together with -SetRestartWarningSchd.
 
 Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
@@ -1108,9 +1137,7 @@ HelpMessage: ''
 
 ### -SendReport
 
-Send report email to specific recipients.
-
-Requires the parameter -PSWUSettings or declare the PSWUSettings.xml file in ModuleBase path.
+Sends the results by email when the cmdlet finishes. The SMTP settings come from -PSWUSettings or from the PSWUSettings.xml file saved by Set-PSWUSettings. If the settings are incomplete, an error is written and no report is sent.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1131,7 +1158,7 @@ HelpMessage: ''
 
 ### -SetActiveHours
 
-If you enable this policy, the PC will not automatically restart after updates during active hours. The PC will attempt to restart outside of active hours.
+Turns on the policy that prevents automatic restarts during active hours. Specify the hours with -ActiveHoursStart and -ActiveHoursEnd. The PC attempts to restart outside of active hours.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -1154,7 +1181,7 @@ HelpMessage: ''
 
 ### -SetActiveHoursMaxRange
 
-Enable this policy to specify the maximum number of hours from the start time that users can set their active hours. The max active hours range can be set between 8 and 18 hours.
+Turns on the policy that limits the range of active hours users can set. Specify the maximum with -ActiveHoursMaxRange.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -1177,7 +1204,7 @@ HelpMessage: ''
 
 ### -SetAutoRestartNotificationConfig
 
-Specifies the type of notification used when notifying the user about a scheduled restart to install updates.
+Turns on the policy that sets the schedule of the auto-restart reminder notification. Specify the value with -AutoRestartNotificationSchedule.
 
 Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
@@ -1202,7 +1229,7 @@ HelpMessage: ''
 
 This policy setting allows you to control whether users receive notifications for auto restarts for update installations including reminder and warning notifications.
 
-Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10​
+Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1223,9 +1250,9 @@ HelpMessage: ''
 
 ### -SetAutoRestartRequiredNotificationDismissal
 
-Enable this policy to specify the method by which the auto-restart required notification is dismissed. When a restart is required to install updates, the auto-restart required notification is displayed. By default, the notification is automatically dismissed after 25 seconds.
+Turns on the policy that sets how the auto-restart required notification is dismissed. Specify the method with -AutoRestartRequiredNotificationDismissal.
 
-Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10​
+Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1294,7 +1321,7 @@ HelpMessage: ''
 
 Enabling this policy for EDU devices that remain on Carts overnight will skip power checks to ensure update reboots will happen at the scheduled install time.
 
-Supported on: At least Windows 10 Server, Windows 10 or Windows 10 RT​
+Supported on: At least Windows 10 Server, Windows 10 or Windows 10 RT
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1317,7 +1344,7 @@ HelpMessage: ''
 
 Configure this policy to specify whether to receive Windows Driver Updates from Windows Update endpoint, managed by Windows Update for Business policies, or through your configured Windows Server Update Service (WSUS) server.
 
-Supported on: At least Windows Server 2022, or Windows 10 Version 2004​
+Supported on: At least Windows Server 2022, or Windows 10 Version 2004
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1340,7 +1367,7 @@ HelpMessage: ''
 
 Configure this policy to specify whether to receive Windows Feature Updates from Windows Update endpoint, managed by Windows Update for Business policies, or through your configured Windows Server Update Service (WSUS) server.
 
-Supported on: At least Windows Server 2022, or Windows 10 Version 2004​
+Supported on: At least Windows Server 2022, or Windows 10 Version 2004
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1363,7 +1390,7 @@ HelpMessage: ''
 
 Configure this policy to specify whether to receive Other Updates from Windows Update endpoint, managed by Windows Update for Business policies, or through your configured Windows Server Update Service (WSUS) server.
 
-Supported on: At least Windows Server 2022, or Windows 10 Version 2004​
+Supported on: At least Windows Server 2022, or Windows 10 Version 2004
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1386,7 +1413,7 @@ HelpMessage: ''
 
 Configure this policy to specify whether to receive Windows Quality Updates from Windows Update endpoint, managed by Windows Update for Business policies, or through your configured Windows Server Update Service (WSUS) server.
 
-Supported on: At least Windows Server 2022, or Windows 10 Version 2004​
+Supported on: At least Windows Server 2022, or Windows 10 Version 2004
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1407,7 +1434,7 @@ HelpMessage: ''
 
 ### -SetRestartWarningSchd
 
-Enable this policy to control when notifications are displayed to warn users about a scheduled restart for the update installation deadline.
+Turns on the policy that controls when notifications warn users about a scheduled restart for the update installation deadline. Specify the times with -ScheduleRestartWarning and -ScheduleImminentRestartWarning.
 
 Supported on: Windows Server 2016 through Windows Server 2022, or Windows 10
 
@@ -1430,7 +1457,7 @@ HelpMessage: ''
 
 ### -SetUpdateNotificationLevel
 
-This policy allows you to define what Windows Update notifications users see. This policy doesn't control how and when updates are downloaded and installed.
+Turns on the policy that defines which Windows Update notifications users see. Specify the level with -UpdateNotificationLevel.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -1499,9 +1526,9 @@ HelpMessage: ''
 
 ### -TargetReleaseVersion
 
-Enable settings for control maximum version of Feature updates.
+Turns on the policy that limits the maximum version of Feature updates. Specify the version with -TargetReleaseVersionInfo and the product with -ProductVersion.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -1522,9 +1549,9 @@ HelpMessage: ''
 
 ### -TargetReleaseVersionInfo
 
-TargetReleaseVersionInfo allow to control maximum version of Feature updates. For example "22H2".
+Sets the maximum version of Feature updates that the computer receives, for example '22H2'. Use it together with -TargetReleaseVersion and -ProductVersion.
 
-Supported on: At least Windows 10 Server or Windows 10​
+Supported on: At least Windows 10 Server or Windows 10
 
 ```yaml
 Type: System.String
@@ -1545,7 +1572,7 @@ HelpMessage: ''
 
 ### -UpdateNotificationLevel
 
-This policy allows you to define what Windows Update notifications users see. This policy doesn't control how and when updates are downloaded and installed.
+Sets what Windows Update notifications users see: 'DefaultOS', 'DisableAllExcludingRestart', or 'DisableAllIncludingRestart'. This policy does not control how and when updates are downloaded and installed. Use it together with -SetUpdateNotificationLevel.
 
 Supported on: At least Windows 10 Server or Windows 10
 
@@ -1671,17 +1698,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.String[]
 
-Specify one or more computer names for remote connection.
+You can pipe computer names to ComputerName.
 
 ## OUTPUTS
 
 ### PSWindowsUpdateNext.WUSettings
 
-OutputType for WUSettings objects.
+An object with ComputerName and one property for each setting that you specified, plus RegistrySubKey1 and RegistrySubKey2 when the cmdlet had to create a registry key.
 
 ## NOTES
 
+This cmdlet requires an elevated session and stops with an error when the session is not elevated. The cmdlet has a confirmation impact of High, so it asks for confirmation. Remote computers are changed through the remote registry, so the Remote Registry service must run there; see Enable-WURemoting. Which policies take effect depends on the Windows version. The description of each parameter shows the versions it supports.
+
 ## RELATED LINKS
 
-{{ Fill in the related links here }}
-
+- [Get-WUSettings](Get-WUSettings.md)
+- [Get-WUServiceManager](Get-WUServiceManager.md)
