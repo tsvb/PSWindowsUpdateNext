@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Security
+- `Show-PSWUConsole` no longer compiles `Gui\Models.cs` with `Add-Type` or loads loose XAML files at run time. The row types are now part of `PSWindowsUpdateNext.dll` and the two XAML files are embedded in it, so under an `AllSigned` policy everything the console executes is covered by the signature. The console no longer calls `Add-Type` on source code, so it needs no C# compiler. `Gui\MainWindow.xaml`, `Gui\Theme.xaml`, and `Gui\Models.cs` are removed from the module folder.
+- The console's "Restart as administrator" button no longer starts the elevated host with `-ExecutionPolicy Bypass`, so it respects the execution policy the administrator set. It now passes the command with `-EncodedCommand`, which also fixes a module path that contains a single quote.
+
+### Tests
+- The desktop console test now runs. Pester 5 decides `-Skip` while it discovers tests, and the old apartment check ran too late, so the test was always skipped. CI also runs it in explicit STA hosts for PowerShell 7 and Windows PowerShell 5.1 and fails if the window is not built.
+
 ## 3.2.0 (2026-10-26)
 
 First release published to GitHub Releases and the PowerShell Gallery.

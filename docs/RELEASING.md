@@ -19,9 +19,9 @@ build  ->  sign                      ->  release  ->  publish
 
 The GitHub zip and the Gallery package are made from the same signed files; signing happens exactly once.
 
-Files that are signed: both `PSWindowsUpdateNext.dll` files, `PSWindowsUpdateNext.psm1`, `PSWindowsUpdateNext.psd1`, `PSWindowsUpdateNext.Format.ps1xml`, and `Gui\*.ps1`. SHA-256 with a timestamp. Files that Authenticode cannot cover (`Gui\*.xaml`, `Gui\Models.cs`, the help XML) are not signed. The SHA-256 file of the GitHub zip covers them, but a Gallery install has no such check.
+Files that are signed: both `PSWindowsUpdateNext.dll` files, `PSWindowsUpdateNext.psm1`, `PSWindowsUpdateNext.psd1`, `PSWindowsUpdateNext.Format.ps1xml`, and `Gui\*.ps1`. SHA-256 with a timestamp. The only shipped file that Authenticode cannot cover is the help XML (`PSWindowsUpdateNext.dll-Help.xml`), which is not code. The SHA-256 file of the GitHub zip covers it, but a Gallery install has no such check.
 
-Known gap: `Show-PSWUConsole` compiles `Gui\Models.cs` with `Add-Type` and loads the XAML files at run time. Under an `AllSigned` policy, someone who can edit those files can therefore run code inside the signed module. Moving those types into the DLL and the XAML into the signed script would close this.
+Everything the console runs is covered by a signature. The console's row types are compiled into `PSWindowsUpdateNext.dll`, and its XAML (`MainWindow.xaml`, `Theme.xaml`, kept under `src\PSWindowsUpdateNext\Gui`) is embedded in the DLL as resources. `Gui\Show-PSWUConsole.ps1` reads them with `GetManifestResourceStream`, so nothing is compiled or parsed from an unsigned file at run time and no C# compiler is needed. The "Restart as administrator" button starts the elevated host with `-NoProfile -EncodedCommand` and does not override the execution policy, so an `AllSigned` or `RemoteSigned` policy applies as the administrator set it.
 
 ## One-time setup
 

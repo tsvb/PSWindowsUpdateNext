@@ -64,6 +64,20 @@ jobs:
           $cfg.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $cfg
 
+      # WPF needs a single-threaded apartment, and the window test skips itself in any other host. These
+      # steps start STA hosts explicitly and fail if the window test did not run and pass.
+      - name: Console test in PowerShell 7 (STA)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
+      - name: Console test in Windows PowerShell 5.1 (STA)
+        shell: powershell
+        run: |
+          powershell -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
       - name: Upload module
         uses: actions/upload-artifact@v4
         with:
@@ -150,6 +164,24 @@ jobs:
           $cfg.Run.Exit = $true
           $cfg.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $cfg
+
+      # WPF needs a single-threaded apartment, and the window test skips itself in any other host. These
+      # steps start STA hosts explicitly and fail if the window test did not run and pass.
+      - name: Console test of signed module in PowerShell 7 (STA)
+        if: steps.config.outputs.signed == 'true'
+        shell: pwsh
+        run: |
+          $env:PSWU_MODULE_PATH = (Resolve-Path ./PSWindowsUpdateNext).ProviderPath
+          pwsh -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
+
+      - name: Console test of signed module in Windows PowerShell 5.1 (STA)
+        if: steps.config.outputs.signed == 'true'
+        shell: powershell
+        run: |
+          $env:PSWU_MODULE_PATH = (Resolve-Path ./PSWindowsUpdateNext).ProviderPath
+          powershell -NoProfile -STA -File ./tools/Invoke-ConsoleTest.ps1
+          exit $LASTEXITCODE
 
       - name: Upload release module
         uses: actions/upload-artifact@v4

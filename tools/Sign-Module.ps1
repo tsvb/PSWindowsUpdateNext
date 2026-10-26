@@ -17,7 +17,7 @@
     timestamp. Use -VerifyOnly to run just that check (for example under Windows PowerShell 5.1
     after signing under PowerShell 7).
 
-    Files that cannot be Authenticode-signed (.xaml, .cs, *-Help.xml) are left alone.
+    Files that cannot be Authenticode-signed (*-Help.xml) are left alone. The console's XAML is embedded in the signed DLLs.
 .PARAMETER ModulePath
     The module folder, for example .\PSWindowsUpdateNext.
 .PARAMETER PfxBase64
