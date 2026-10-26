@@ -56,6 +56,24 @@ Describe 'PSWindowsUpdateNext module' {
     It 'exports the Show-PSWUConsole function' {
         (Get-Command Show-PSWUConsole -Module PSWindowsUpdateNext).CommandType | Should -Be 'Function'
     }
+
+    # The module compiles against these assemblies but loads the copies its host ships. PowerShell 7.4,
+    # the oldest supported PowerShell 7, ships version 8 of each; a reference to a newer version fails to
+    # load there with FileNotFoundException, even when the newest PowerShell on a CI runner would load it.
+    It 'references host-provided assemblies no newer than PowerShell 7.4 ships' {
+        $hostProvided = 'System.Management', 'System.Security.Cryptography.ProtectedData', 'System.ServiceProcess.ServiceController'
+        $assembly = (Get-Command Get-WUApiVersion).ImplementingType.Assembly
+        foreach ($reference in $assembly.GetReferencedAssemblies() | Where-Object Name -In $hostProvided) {
+            $reference.Version.Major | Should -BeLessOrEqual 8 -Because "$($reference.Name) $($reference.Version) would not load in PowerShell 7.4"
+        }
+    }
+
+    It 'can load every assembly it references in this host' {
+        $assembly = (Get-Command Get-WUApiVersion).ImplementingType.Assembly
+        foreach ($reference in $assembly.GetReferencedAssemblies()) {
+            { [System.Reflection.Assembly]::Load($reference) } | Should -Not -Throw -Because "$($reference.FullName) must load"
+        }
+    }
 }
 
 Describe 'Desktop console' -Tag 'Console' {
