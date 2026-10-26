@@ -9,7 +9,8 @@
 
     The certificate comes from a base64-encoded PFX (normally the SIGNING_CERT_PFX_BASE64 and
     SIGNING_CERT_PASSWORD secrets, passed in as environment variables). The PFX is written to a
-    temporary file and imported into the current user's store; both are always removed again.
+    temporary file and loaded directly, without importing it into a certificate store; the file is
+    always removed and the private key is released when signing ends.
 
     After signing, every signable file is checked with Get-AuthenticodeSignature. The script
     throws if any status is not 'Valid', if a file has no signer, or if a signature has no
@@ -161,22 +162,21 @@ if (-not [string]::IsNullOrEmpty($PfxPassword) -and $env:GITHUB_ACTIONS -eq 'tru
 
 $tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
 $pfxPath = Join-Path -Path $tempRoot -ChildPath ('pswunext-sign-{0}.pfx' -f [guid]::NewGuid().ToString('N'))
-$importedThumbprints = @()
+$cert = $null
 
 try {
     [System.IO.File]::WriteAllBytes($pfxPath, [System.Convert]::FromBase64String($PfxBase64.Trim()))
 
-    $importArgs = @{
-        FilePath          = $pfxPath
-        CertStoreLocation = 'Cert:\CurrentUser\My'
+    # Load the PFX directly. Import-PfxCertificate lives in the PKI module, which PowerShell 7 may load
+    # through the Windows PowerShell compatibility session; certificates coming back from that session are
+    # deserialized copies without a usable private key. Without PersistKeySet the key container is
+    # deleted again when the certificate is reset in the finally block.
+    $password = if ([string]::IsNullOrEmpty($PfxPassword)) { $null } else { $PfxPassword }
+    $collection = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+    $collection.Import($pfxPath, $password, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::UserKeySet)
+    foreach ($candidate in $collection) {
+        if (-not $cert -and $candidate.HasPrivateKey) { $cert = $candidate } else { $candidate.Reset() }
     }
-    if (-not [string]::IsNullOrEmpty($PfxPassword)) {
-        $importArgs.Password = ConvertTo-SecureString -String $PfxPassword -AsPlainText -Force
-    }
-    $imported = @(Import-PfxCertificate @importArgs)
-    $importedThumbprints = @($imported | ForEach-Object { $_.Thumbprint })
-
-    $cert = $imported | Where-Object { $_.HasPrivateKey } | Select-Object -First 1
     if (-not $cert) { throw 'The PFX does not contain a certificate with a private key.' }
     if ($cert.NotAfter -lt (Get-Date)) { throw "The signing certificate expired on $($cert.NotAfter.ToString('u'))." }
     $codeSigningOid = '1.3.6.1.5.5.7.3.3'
@@ -186,7 +186,6 @@ try {
     }
     Write-Host "Signing with: $($cert.Subject)  (thumbprint $($cert.Thumbprint), expires $($cert.NotAfter.ToString('yyyy-MM-dd')))"
 
-    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     foreach ($file in $files) {
         $name = Get-RelativeName -Root $root -FullName $file.FullName
         $isText = $file.Extension.ToLowerInvariant() -ne '.dll'
@@ -205,7 +204,6 @@ try {
                         TimestampServer = $server
                         ErrorAction     = 'Stop'
                     }
-                    if ($isText) { $params.Encoding = $utf8Bom }
                     $result = Set-AuthenticodeSignature @params
                     if ($result.Status -eq 'Valid') { $signed = $true; break attempts }
                     $lastProblem = "$($result.Status): $($result.StatusMessage)"
@@ -231,8 +229,5 @@ try {
     Write-Host "Signed and verified $($files.Count) file(s)."
 } finally {
     if (Test-Path -LiteralPath $pfxPath) { Remove-Item -LiteralPath $pfxPath -Force -ErrorAction SilentlyContinue }
-    foreach ($thumb in $importedThumbprints) {
-        $certPath = "Cert:\CurrentUser\My\$thumb"
-        if (Test-Path -LiteralPath $certPath) { Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue }
-    }
+    if ($cert) { $cert.Reset() }
 }
