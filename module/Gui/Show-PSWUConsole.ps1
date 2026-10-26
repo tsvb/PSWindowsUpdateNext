@@ -288,7 +288,7 @@ $script:PSWUConsoleBody = {
         }
     }
     foreach ($nav in $pages.Keys) {
-        $ui[$nav].Add_Checked([System.Windows.RoutedEventHandler]{ param($s, $e) Show-Page $s.Name })
+        $ui[$nav].Add_Checked([System.Windows.RoutedEventHandler]{ param($s) Show-Page $s.Name })
     }
 
     # ---------- window chrome ----------
@@ -335,7 +335,7 @@ try {
 
     function Show-DashboardPage {
         Invoke-ConsoleTask -Name 'Reading Windows Update status' -Script $dashboardScript -OnDone {
-            param($result, $errors)
+            param($result)
             $d = $result | Select-Object -First 1
             if (-not $d) { return }
             if ($d.Os) { $ui.TxtOs.Text = $d.Os }
@@ -487,7 +487,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         if ($Action -in 'Install', 'Hide' -and -not (Confirm-Action -Text "Really $verb $what?")) { return }
         $params = @{ Action = $Action; UpdateID = $ids; Source = (Get-Source); AutoReboot = [bool]$ui.SwAutoReboot.IsChecked }
         Invoke-ConsoleTask -Name "$Action $what" -Script $actionScript -Params $params -OnDone {
-            param($result, $errors)
+            param($result)
             foreach ($r in $result) { Add-Log 'info' "$($r.Status)  $($r.KB)  $($r.Title)  ->  $($r.Result)" }
             if ($state.LastScanArgs) { Invoke-ConsoleTask -Name 'Rescanning' -Script $scanScript -Params $state.LastScanArgs -OnDone $state.RescanDone }
             else { Invoke-UpdateScan }
@@ -495,7 +495,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     }
     # Reuse the scan completion handler for rescans after an action.
     $state.RescanDone = {
-        param($result, $errors)
+        param($result)
         $state.AllUpdates = @($result | ForEach-Object {
             $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
             foreach ($p in 'KB','Title','Size','SizeBytes','Status','UpdateID','IsHidden','IsDownloaded','IsInstalled','RebootRequired','Category','Severity','Description','MoreInfoUrl','Published') { $r.$p = $_.$p }
@@ -522,7 +522,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         foreach ($r in @($ui.ListUpdates.ItemsSource)) { $r.Selected = $on }
     })
     $ui.ListUpdates.AddHandler([System.Windows.UIElement]::MouseLeftButtonUpEvent, [System.Windows.Input.MouseButtonEventHandler]{
-        param($s, $e)
+        $e = $args[1]  # (sender, MouseButtonEventArgs)
         $src = $e.OriginalSource
         $row = $null
         while ($src -and -not $row) {
@@ -553,7 +553,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     function Show-HistoryPage {
         $count = @(25, 50, 100, 250, 1000)[$ui.CmbHistoryCount.SelectedIndex]
         Invoke-ConsoleTask -Name "Reading history (last $count)" -Script 'param([int]$Last) Get-WUHistory -Last $Last -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Date = $_.Date; Title = "$($_.Title)"; KB = "$($_.KB)"; Result = "$($_.Result)"; Operation = "$($_.OperationName)" } }' -Params @{ Last = $count } -OnDone {
-            param($result, $errors)
+            param($result)
             $state.History = @($result | ForEach-Object {
                 $r = New-Object PSWindowsUpdateNext.Gui.HistoryRow
                 $r.Date = $_.Date; $r.Title = $_.Title; $r.KB = $_.KB; $r.Result = $_.Result; $r.Operation = $_.Operation
@@ -575,7 +575,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     # ---------- services ----------
     function Show-ServicePage {
         Invoke-ConsoleTask -Name 'Reading update services' -Script 'Get-WUServiceManager -WarningAction SilentlyContinue -ErrorAction Stop | ForEach-Object { [pscustomobject]@{ Name = "$($_.Name)"; ServiceID = "$($_.ServiceID)"; IsDefault = [bool]$_.IsDefaultAUService; IsManaged = [bool]$_.IsManaged; ServiceUrl = "$($_.ServiceUrl)" } }' -OnDone {
-            param($result, $errors)
+            param($result)
             $ui.ListServices.ItemsSource = @($result | ForEach-Object {
                 $r = New-Object PSWindowsUpdateNext.Gui.ServiceRow
                 $r.Name = $_.Name; $r.ServiceID = $_.ServiceID; $r.IsDefault = $_.IsDefault; $r.IsManaged = $_.IsManaged; $r.ServiceUrl = $_.ServiceUrl
@@ -588,7 +588,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         Invoke-ConsoleTask -Name 'Registering Microsoft Update' -Script 'Add-WUServiceManager -MicrosoftUpdate -Confirm:$false -Verbose -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null' -OnDone { Show-ServicePage }
     })
     $ui.ListServices.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler]{
-        param($s, $e)
+        $e = $args[1]  # (sender, RoutedEventArgs)
         $btn = $e.OriginalSource
         if ($btn -is [System.Windows.Controls.Button] -and $btn.Tag) {
             if (-not (Test-Elevated)) { return }
@@ -618,7 +618,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     }
     function Show-SettingPage {
         Invoke-ConsoleTask -Name 'Reading client policy' -Script '$s = Get-WUSettings -WarningAction SilentlyContinue -ErrorAction Stop; if ($s) { $s.PSObject.Properties | Where-Object { $_.Name -notin "ComputerName","CmdletStart","CmdletEnd","CmdletLine" } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Value = "$($_.Value)" } } }' -OnDone {
-            param($result, $errors)
+            param($result)
             Show-SettingList @($result | ForEach-Object { $s = New-Object PSWindowsUpdateNext.Gui.SettingRow; $s.Name = $_.Name; $s.Value = $_.Value; $s })
         }
     }
@@ -675,7 +675,7 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
             $ui.TxtCatalogEmpty.Visibility = if ($state.Catalog.Count) { 'Collapsed' } else { 'Visible' }
         }
     })
-    $ui.TxtCatalogKB.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $ui.BtnCatalogSearch.RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Button]::ClickEvent))) } })
+    $ui.TxtCatalogKB.Add_KeyDown({ if ($args[1].Key -eq 'Return') { $ui.BtnCatalogSearch.RaiseEvent((New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Button]::ClickEvent))) } })
     $ui.ChkCatalogAll.Add_Click({ $on = [bool]$ui.ChkCatalogAll.IsChecked; foreach ($r in $state.Catalog) { $r.Selected = $on } })
     $ui.BtnCatalogBrowse.Add_Click({
         $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -691,7 +691,7 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
         foreach ($r in $sel) { $r.Result = 'Accepted' }
         $params = @{ KB = $ui.TxtCatalogKB.Text.Trim(); Destination = $ui.TxtCatalogDest.Text; UpdateID = @($sel.Identity); SkipSignature = [bool]$ui.SwSkipSignature.IsChecked }
         Invoke-ConsoleTask -Name "Downloading $($sel.Count) package(s)" -Script $catalogDownloadScript -Params $params -OnDone {
-            param($result, $errors)
+            param($result)
             foreach ($r in $result) {
                 $row = $state.Catalog | Where-Object Identity -eq $r.Identity | Select-Object -First 1
                 if ($row) { $row.Result = $r.Result }
