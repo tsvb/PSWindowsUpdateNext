@@ -564,7 +564,7 @@ HelpMessage: ''
 
 ### -DetectionFrequencyEnabled
 
-Enable/Disable detection frequency.
+Turns on the policy that sets the time between detection cycles. Specify the interval with -DetectionFrequency.
 
 Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT
 
@@ -587,7 +587,7 @@ HelpMessage: ''
 
 ### -DisableWindowsUpdateAccess
 
-Disables/Enables access to Windows Update.
+Removes access to Windows Update (writes DisableWindowsUpdateAccess=1). Use -DisableWindowsUpdateAccess:$false to restore it (writes 0).
 
 Supported on: At least Windows Server 2003 operating systems, Windows XP Professional Service Pack 1, or Windows 2000 Service Pack 3
 
@@ -679,7 +679,7 @@ HelpMessage: ''
 
 ### -IncludeRecommendedUpdates
 
-Enable/Disable recommended updates.
+Includes recommended updates, not only important updates, when Automatic Updates installs updates (writes 1). Use -IncludeRecommendedUpdates:$false to exclude them (writes 0).
 
 Supported on: At least Windows Vista through Windows 8.1 or Windows Server 2012 R2 with most current service pack. Not supported on Windows 10 and above.
 
@@ -771,9 +771,9 @@ HelpMessage: ''
 
 ### -NoAutoUpdate
 
-Enable/Disable Automatic Updates.
+Disables Automatic Updates (writes NoAutoUpdate=1). Use -NoAutoUpdate:$false to enable Automatic Updates (writes 0).
 
-Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 Option 7 only supported on servers of at least Windows Server 2016 edition
+Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -796,7 +796,7 @@ HelpMessage: ''
 
 Sets the Automatic Updates notification mode (the AUOptions policy value). Valid values are 'Not configured', 'Disabled', 'Notify before download', 'Notify before installation', 'Scheduled installation', and 'Users configure'. This parameter has the alias AUOptions.
 
-Supported on: Windows XP Professional Service Pack 1 or later, and Windows 2000 Service Pack 3 or later. 'Users configure' is supported only on Windows Server 2016 and later.
+Supported on: Windows XP Professional Service Pack 1 or later, and Windows 2000 Service Pack 3 or later.
 
 ```yaml
 Type: System.String
@@ -1503,7 +1503,7 @@ HelpMessage: ''
 
 ### -TargetGroupEnabled
 
-Use/Do not use client-side targeting.
+Turns on client-side targeting. Specify the computer group with -TargetGroup.
 
 Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT
 
@@ -1621,7 +1621,7 @@ HelpMessage: ''
 
 ### -UseWUServer
 
-The computer gets its updates from a WSUS server or from Microsoft Update.
+Makes the computer get its updates from the WSUS server in -WUServer (writes 1). Use -UseWUServer:$false to get updates from Microsoft Update or Windows Update instead (writes 0).
 
 Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT
 
@@ -1666,7 +1666,7 @@ HelpMessage: ''
 
 ### -WUServer
 
-HTTP(S) URL of the WSUS server that is used by Automatic Updates and API callers (by default).
+Sets the HTTP or HTTPS URL of the WSUS server that Automatic Updates and API callers use. It takes effect when -UseWUServer is on.
 
 Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT
 

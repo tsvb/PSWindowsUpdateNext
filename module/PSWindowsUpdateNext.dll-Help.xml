@@ -5882,7 +5882,7 @@ When an uninstallation through the API requires a restart, the cmdlet asks wheth
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>WUSAMode</maml:name>
         <maml:description>
-          <maml:para>Uses wusa.exe instead of the Windows Update Agent API to uninstall the update that -KBArticleID names.</maml:para>
+          <maml:para>Uses wusa.exe instead of the Windows Update Agent API to uninstall the update that -KBArticleID names. It applies only when the cmdlet runs immediately on the local computer. Remote and scheduled runs use the API.</maml:para>
         </maml:description>
         <dev:type>
           <maml:name>System.Management.Automation.SwitchParameter</maml:name>
@@ -5905,7 +5905,7 @@ When an uninstallation through the API requires a restart, the cmdlet asks wheth
           <maml:name>System.Object</maml:name>
         </dev:type>
         <maml:description>
-          <maml:para>When the uninstallation runs through the API, the IInstallationResult COM object of the Windows Update Agent. With -WUSAMode, a remote computer, or -ScheduleJob, the output of Invoke-WUJob (none for the local wusa.exe call).</maml:para>
+          <maml:para>The IInstallationResult COM object of the Windows Update Agent, when the update is uninstalled on the local computer through the API. Nothing is returned for -WUSAMode, for a remote computer, or for -ScheduleJob.</maml:para>
         </maml:description>
       </command:returnValue>
     </command:returnValues>
@@ -7442,7 +7442,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>DetectionFrequencyEnabled</maml:name>
         <maml:description>
-          <maml:para>Enable/Disable detection frequency.</maml:para>
+          <maml:para>Turns on the policy that sets the time between detection cycles. Specify the interval with -DetectionFrequency.</maml:para>
           <maml:para>Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT</maml:para>
         </maml:description>
         <dev:type>
@@ -7452,7 +7452,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>DisableWindowsUpdateAccess</maml:name>
         <maml:description>
-          <maml:para>Disables/Enables access to Windows Update.</maml:para>
+          <maml:para>Removes access to Windows Update (writes DisableWindowsUpdateAccess=1). Use -DisableWindowsUpdateAccess:$false to restore it (writes 0).</maml:para>
           <maml:para>Supported on: At least Windows Server 2003 operating systems, Windows XP Professional Service Pack 1, or Windows 2000 Service Pack 3</maml:para>
         </maml:description>
         <dev:type>
@@ -7492,7 +7492,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>IncludeRecommendedUpdates</maml:name>
         <maml:description>
-          <maml:para>Enable/Disable recommended updates.</maml:para>
+          <maml:para>Includes recommended updates, not only important updates, when Automatic Updates installs updates (writes 1). Use -IncludeRecommendedUpdates:$false to exclude them (writes 0).</maml:para>
           <maml:para>Supported on: At least Windows Vista through Windows 8.1 or Windows Server 2012 R2 with most current service pack. Not supported on Windows 10 and above.</maml:para>
         </maml:description>
         <dev:type>
@@ -7533,8 +7533,8 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>NoAutoUpdate</maml:name>
         <maml:description>
-          <maml:para>Enable/Disable Automatic Updates.</maml:para>
-          <maml:para>Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 Option 7 only supported on servers of at least Windows Server 2016 edition</maml:para>
+          <maml:para>Disables Automatic Updates (writes NoAutoUpdate=1). Use -NoAutoUpdate:$false to enable Automatic Updates (writes 0).</maml:para>
+          <maml:para>Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3</maml:para>
         </maml:description>
         <dev:type>
           <maml:name>System.Management.Automation.SwitchParameter</maml:name>
@@ -7544,7 +7544,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
         <maml:name>NotificationLevel</maml:name>
         <maml:description>
           <maml:para>Sets the Automatic Updates notification mode (the AUOptions policy value). Valid values are 'Not configured', 'Disabled', 'Notify before download', 'Notify before installation', 'Scheduled installation', and 'Users configure'. This parameter has the alias AUOptions.</maml:para>
-          <maml:para>Supported on: Windows XP Professional Service Pack 1 or later, and Windows 2000 Service Pack 3 or later. 'Users configure' is supported only on Windows Server 2016 and later.</maml:para>
+          <maml:para>Supported on: Windows XP Professional Service Pack 1 or later, and Windows 2000 Service Pack 3 or later.</maml:para>
         </maml:description>
         <command:parameterValueGroup>
           <command:parameterValue required="false" variableLength="false">Not configured</command:parameterValue>
@@ -7882,7 +7882,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>TargetGroupEnabled</maml:name>
         <maml:description>
-          <maml:para>Use/Do not use client-side targeting.</maml:para>
+          <maml:para>Turns on client-side targeting. Specify the computer group with -TargetGroup.</maml:para>
           <maml:para>Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT</maml:para>
         </maml:description>
         <dev:type>
@@ -7939,7 +7939,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>UseWUServer</maml:name>
         <maml:description>
-          <maml:para>The computer gets its updates from a WSUS server or from Microsoft Update.</maml:para>
+          <maml:para>Makes the computer get its updates from the WSUS server in -WUServer (writes 1). Use -UseWUServer:$false to get updates from Microsoft Update or Windows Update instead (writes 0).</maml:para>
           <maml:para>Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT</maml:para>
         </maml:description>
         <dev:type>
@@ -7958,7 +7958,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>WUServer</maml:name>
         <maml:description>
-          <maml:para>HTTP(S) URL of the WSUS server that is used by Automatic Updates and API callers (by default).</maml:para>
+          <maml:para>Sets the HTTP or HTTPS URL of the WSUS server that Automatic Updates and API callers use. It takes effect when -UseWUServer is on.</maml:para>
           <maml:para>Supported on: At least Windows XP Professional Service Pack 1 or Windows 2000 Service Pack 3, excluding Windows RT</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>

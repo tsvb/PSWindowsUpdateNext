@@ -295,7 +295,7 @@ HelpMessage: ''
 
 ### -WUSAMode
 
-Uses wusa.exe instead of the Windows Update Agent API to uninstall the update that -KBArticleID names.
+Uses wusa.exe instead of the Windows Update Agent API to uninstall the update that -KBArticleID names. It applies only when the cmdlet runs immediately on the local computer. Remote and scheduled runs use the API.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -331,7 +331,7 @@ You can pipe computer names to ComputerName.
 
 ### System.Object
 
-When the uninstallation runs through the API, the IInstallationResult COM object of the Windows Update Agent. With -WUSAMode, a remote computer, or -ScheduleJob, the output of Invoke-WUJob (none for the local wusa.exe call).
+The IInstallationResult COM object of the Windows Update Agent, when the update is uninstalled on the local computer through the API. Nothing is returned for -WUSAMode, for a remote computer, or for -ScheduleJob.
 
 ## NOTES
 
