@@ -64,6 +64,11 @@ public sealed class WUSignatureResult
 	/// <summary>True for <see cref="WUSignatureStatus.Valid"/> only.</summary>
 	public bool IsValid => Status == WUSignatureStatus.Valid;
 
+	internal static WUSignatureResult Failed(string reason)
+	{
+		return new WUSignatureResult(WUSignatureStatus.Untrusted, 0, "signature verification could not be completed: " + reason, null, null, null, null);
+	}
+
 	/// <inheritdoc/>
 	public override string ToString()
 	{

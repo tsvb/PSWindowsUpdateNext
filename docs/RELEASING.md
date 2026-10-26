@@ -5,42 +5,45 @@ A release is cut by pushing a `v*` tag. The workflow in `.github/workflows/build
 ## What the pipeline does
 
 ```
-build  ->  sign  ->  release  ->  publish
-(every     (tags)    (tags)       (tags, environment "release")
- push/PR)
+build  ->  sign                      ->  release  ->  publish
+(every     (tags, environment         (tags)       (tags, environment "release")
+ push/PR)   "signing")
 ```
 
 | Job | Runs on | Does | Needs |
 | --- | --- | --- | --- |
 | `build` | every push and PR | On tags only, first checks that the tag, `ModuleVersion`, the csproj `<Version>` and `CHANGELOG.md` agree. Builds, runs the Pester tests in PowerShell 7 and Windows PowerShell 5.1, uploads the unsigned module. | nothing |
-| `sign` | `v*` tags | Authenticode-signs the module once, verifies every file in PowerShell 7 and 5.1, re-runs the Pester tests against the signed module, uploads the signed module. | signing secrets |
+| `sign` | `v*` tags | Authenticode-signs the module once, verifies every file in PowerShell 7 and 5.1, re-runs the Pester tests against the signed module, uploads the signed module. Runs in the `signing` environment. | signing secrets |
 | `release` | `v*` tags | Zips the signed module, writes a SHA-256 checksum file, takes the release notes from `CHANGELOG.md`, creates the GitHub release. The only job with `contents: write`. | nothing |
 | `publish` | `v*` tags | Runs `Test-ModuleManifest`, then `Publish-PSResource` (falling back to `Publish-Module` only if PSResourceGet is missing) with the signed module. Runs in the `release` environment. | `PSGALLERY_API_KEY` |
 
 The GitHub zip and the Gallery package are made from the same signed files; signing happens exactly once.
 
-Files that are signed: both `PSWindowsUpdateNext.dll` files, `PSWindowsUpdateNext.psm1`, `PSWindowsUpdateNext.psd1`, `PSWindowsUpdateNext.Format.ps1xml`, and `Gui\*.ps1`. SHA-256 with an RFC 3161 timestamp. Files that Authenticode cannot cover (`*.xaml`, `Models.cs`, the help XML) are not signed; the checksum of the zip covers them.
+Files that are signed: both `PSWindowsUpdateNext.dll` files, `PSWindowsUpdateNext.psm1`, `PSWindowsUpdateNext.psd1`, `PSWindowsUpdateNext.Format.ps1xml`, and `Gui\*.ps1`. SHA-256 with a timestamp. Files that Authenticode cannot cover (`Gui\*.xaml`, `Gui\Models.cs`, the help XML) are not signed. The SHA-256 file of the GitHub zip covers them, but a Gallery install has no such check.
+
+Known gap: `Show-PSWUConsole` compiles `Gui\Models.cs` with `Add-Type` and loads the XAML files at run time. Under an `AllSigned` policy, someone who can edit those files can therefore run code inside the signed module. Moving those types into the DLL and the XAML into the signed script would close this.
 
 ## One-time setup
 
 ### Secrets and variable
 
-Create these under **Settings > Secrets and variables > Actions**.
+Create the secrets in the environments described in the next section. Create the variable under **Settings > Secrets and variables > Actions**.
 
-| Name | Kind | Needed for | Value |
+| Name | Kind | Where | Value |
 | --- | --- | --- | --- |
-| `SIGNING_CERT_PFX_BASE64` | secret | `sign` | Base64 of the code-signing `.pfx`. |
-| `SIGNING_CERT_PASSWORD` | secret | `sign` | The PFX password. Leave unset only if the PFX has no password. |
-| `PSGALLERY_API_KEY` | secret | `publish` | PowerShell Gallery API key (below). Best stored as a secret of the `release` environment instead of a repository secret. |
-| `ALLOW_UNSIGNED_RELEASE` | variable | `sign` | Leave unset. Set to `true` only to ship an unsigned release on purpose. |
+| `SIGNING_CERT_PFX_BASE64` | secret | `signing` environment | Base64 of the code-signing `.pfx`. |
+| `SIGNING_CERT_PASSWORD` | secret | `signing` environment | The PFX password. Leave unset only if the PFX has no password. |
+| `PSGALLERY_API_KEY` | secret | `release` environment | PowerShell Gallery API key (below). |
+| `ALLOW_UNSIGNED_RELEASE` | variable | repository | Leave unset. Set to `true` only to ship an unsigned release on purpose. |
 
-The `sign` job is not in the `release` environment, so the two signing secrets must be repository (or organization) secrets, not environment secrets.
+Keep the secrets in the environments, never as repository secrets. A repository secret is readable by a workflow that anyone with write access pushes on any branch, without a tag. An environment secret is only released to jobs that the environment's deployment rules allow.
 
 Encode the PFX and load it into the secret without printing it:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes('.\codesign.pfx')) | gh secret set SIGNING_CERT_PFX_BASE64
-gh secret set SIGNING_CERT_PASSWORD      # prompts for the value
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('.\codesign.pfx')) | gh secret set SIGNING_CERT_PFX_BASE64 --env signing
+gh secret set SIGNING_CERT_PASSWORD --env signing      # prompts for the value
+gh secret set PSGALLERY_API_KEY --env release          # prompts for the value
 ```
 
 Delete the local `.pfx` and any base64 copy afterwards, or keep them in a password manager.
@@ -51,14 +54,20 @@ Delete the local `.pfx` and any base64 copy afterwards, or keep them in a passwo
 - No `PSGALLERY_API_KEY`: the `publish` job warns and skips publishing. The GitHub release is unaffected.
 - Branch and PR builds never need any of these.
 
-### The `release` environment
+### The `signing` and `release` environments
 
-1. **Settings > Environments > New environment**, name it exactly `release`.
-2. Enable **Required reviewers** and add the owner (and anyone else allowed to approve a publish). The `publish` job then pauses until a reviewer approves, after the GitHub release exists.
-3. Under **Deployment branches and tags**, choose **Selected branches and tags** and add a tag rule `v*`.
-4. Optionally add `PSGALLERY_API_KEY` here as an **environment secret** so only approved runs can read it.
+Create both environments before the first tag. Create them under **Settings > Environments > New environment**, using exactly these names.
 
-Also consider a tag ruleset (**Settings > Rules > Rulesets**, target tags matching `v*`) that restricts who can create them. Anyone who can push a `v*` tag can start a run that uses the signing secrets.
+- **`signing`**
+  - Under **Deployment branches and tags**, choose **Selected branches and tags** and add only the tag rule `v*`.
+  - No reviewers are needed.
+  - Add `SIGNING_CERT_PFX_BASE64` and `SIGNING_CERT_PASSWORD` as environment secrets.
+- **`release`**
+  - Use the same `v*` tag rule.
+  - Enable **Required reviewers** and add the people allowed to approve a publish. The `publish` job then pauses until someone approves, after the GitHub release exists.
+  - Add `PSGALLERY_API_KEY` as an environment secret.
+
+Also add a tag ruleset under **Settings > Rules > Rulesets**, targeting tags matching `v*`, that restricts who can create them. Anyone who can push a `v*` tag can start a run that signs with your certificate.
 
 ### PowerShell Gallery API key
 

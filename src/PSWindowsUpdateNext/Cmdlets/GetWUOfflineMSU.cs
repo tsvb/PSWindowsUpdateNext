@@ -400,7 +400,16 @@ public class GetWUOfflineMSU : PSCmdlet
 						digestVerified = true;
 						WriteVerbose(Path.GetFileName(target) + ": digest OK");
 					}
-					WUSignatureResult signature = WUFileVerifier.VerifyAuthenticode(target);
+					WUSignatureResult signature;
+					try
+					{
+						signature = WUFileVerifier.VerifyAuthenticode(target);
+					}
+					catch (Exception ex)
+					{
+						// Any failure inside verification counts as an unverified file, never a pass.
+						signature = WUSignatureResult.Failed(ex.Message);
+					}
 					// Revocation that cannot be checked (offline, proxy) is tolerated only when the file already
 					// matched the digest the Catalog served over HTTPS; without that digest it counts as a failure.
 					bool revocationTolerated = signature.Status == WUSignatureStatus.RevocationUnknown && digestVerified;

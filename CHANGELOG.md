@@ -8,6 +8,7 @@ First release published to GitHub Releases and the PowerShell Gallery.
 - `Get-WUOfflineMSU` now requires each downloaded file to be signed by Microsoft. The signer's chain must end at a Microsoft root CA: Root CA 2010 or 2011, ECC Product Root 2018, or the legacy 1997 and 2001 roots. A valid signature from any other publisher is rejected.
 - `Get-WUOfflineMSU` checks certificate revocation for the signing chain, and a revoked certificate fails. If revocation cannot be checked because the machine is offline or behind a proxy, a file that matched the Catalog's SHA-1 digest is kept with a warning.
 - Release files are Authenticode-signed with SHA-256 and timestamped. The release workflow refuses to publish unsigned files unless the repository variable `ALLOW_UNSIGNED_RELEASE` is `true`.
+- The signing certificate is only available to tag builds through the `signing` environment, and the third-party release action is pinned to a commit.
 
 ### Added
 - Release pipeline: a tag must match the manifest, the project file, and this changelog. Signing runs in its own job. The GitHub release carries a zip and a SHA-256 checksum file, and publishing to the PowerShell Gallery waits for approval through the `release` environment. See `docs/RELEASING.md`.
@@ -20,6 +21,9 @@ First release published to GitHub Releases and the PowerShell Gallery.
 - `Show-PSWUConsole` has complete comment-based help.
 
 ### Fixed
+- `Set-WUSettings -NoAutoUpdate` read and wrote `TargetGroupEnabled` instead of `NoAutoUpdate`, so it never turned Automatic Updates on or off.
+- `Set-WUSettings -SetDisableUXWUAccess` wrote `SetDisablePauseUXAccess`, hiding the pause option instead of removing scan access.
+- An exception inside signature verification left the downloaded file in place. It now counts as a failed check, and the file is deleted unless `-SkipSignatureCheck` is set.
 - Signature verification leaked a native copy of the file path on every call.
 
 ### Removed

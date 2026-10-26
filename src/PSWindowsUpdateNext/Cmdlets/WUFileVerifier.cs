@@ -124,6 +124,10 @@ public static class WUFileVerifier
 
 	private const int CRYPT_E_REVOCATION_OFFLINE = unchecked((int)0x80092013);
 
+	private const uint CERT_TRUST_REVOCATION_STATUS_UNKNOWN = 0x00000040;
+
+	private const uint CERT_TRUST_IS_OFFLINE_REVOCATION = 0x01000000;
+
 	/// <summary>
 	/// Verifies that a file carries a valid Authenticode signature from Microsoft.
 	/// </summary>
@@ -143,7 +147,10 @@ public static class WUFileVerifier
 		int hr = online.HResult;
 		if (hr == 0)
 		{
-			return FromTrustedChain(online, WUSignatureStatus.Valid, hr);
+			// The default Software Publishing policy may accept an offline revocation check and still
+			// return S_OK. The chain's own trust status says whether revocation was really confirmed.
+			bool revocationConfirmed = (online.ChainErrorStatus & (CERT_TRUST_REVOCATION_STATUS_UNKNOWN | CERT_TRUST_IS_OFFLINE_REVOCATION)) == 0;
+			return FromTrustedChain(online, revocationConfirmed ? WUSignatureStatus.Valid : WUSignatureStatus.RevocationUnknown, revocationConfirmed ? hr : CRYPT_E_REVOCATION_OFFLINE);
 		}
 		if (IsRevocationUnknown(hr))
 		{
@@ -364,6 +371,7 @@ public static class WUFileVerifier
 			return;
 		}
 		CERT_CHAIN_CONTEXT chainContext = (CERT_CHAIN_CONTEXT)Marshal.PtrToStructure(chainContextPtr, typeof(CERT_CHAIN_CONTEXT));
+		check.ChainErrorStatus = chainContext.TrustStatus.dwErrorStatus;
 		if (chainContext.cChain == 0 || chainContext.rgpChain == IntPtr.Zero)
 		{
 			return;
@@ -417,6 +425,8 @@ public static class WUFileVerifier
 		public string RootSubject;
 
 		public string RootThumbprint;
+
+		public uint ChainErrorStatus;
 	}
 
 	// The interop structs below are blittable (no managed strings), so StructureToPtr allocates nothing

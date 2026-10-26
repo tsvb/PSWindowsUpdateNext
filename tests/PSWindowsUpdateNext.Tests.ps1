@@ -101,8 +101,10 @@ Describe 'Authenticode verification of downloaded files' {
         # pwsh.exe is signed by Microsoft; git.exe is signed by the Git for Windows maintainers.
         $msSigned = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
         $thirdParty = Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
-        $script:hasMsSigned = Test-Path -LiteralPath $msSigned
-        $script:hasThirdParty = Test-Path -LiteralPath $thirdParty
+        # Only run a signed-file case when Windows itself reports the embedded signature as valid, so a
+        # runner image that ships these binaries unsigned skips instead of failing for the wrong reason.
+        $script:hasMsSigned = (Test-Path -LiteralPath $msSigned) -and (Get-AuthenticodeSignature -LiteralPath $msSigned).Status -eq 'Valid'
+        $script:hasThirdParty = (Test-Path -LiteralPath $thirdParty) -and (Get-AuthenticodeSignature -LiteralPath $thirdParty).Status -eq 'Valid'
     }
 
     BeforeAll {
@@ -111,12 +113,20 @@ Describe 'Authenticode verification of downloaded files' {
         $script:thirdParty = Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
         # Accepted outcomes for a genuine Microsoft signature: revocation may be unreachable from a runner.
         $script:accepted = 'Valid', 'RevocationUnknown'
+        # Microsoft root CAs that WUFileVerifier accepts (SHA-1 thumbprints).
+        $script:microsoftRoots = @(
+            '3B1EFD3A66EA28B16697394703A72CA340A05BD5', # Root CA 2010
+            '8F43288AD272F3103B6FB1428485EA3014C0BCFE', # Root CA 2011
+            '06F1AA330B927B753A40E68CDF22E34BCBEF3352', # ECC Product Root 2018
+            'CDD4EEAE6000AC7F40C3802C171E30148030C072', # Root CA (2001)
+            'A43489159A520F0D93D032CCAF37E7FE20A8B419'  # Root Authority (1997)
+        )
     }
 
     It 'accepts a Microsoft-signed file' -Skip:(-not $script:hasMsSigned) {
         $result = [PSWindowsUpdateNext.WUFileVerifier]::VerifyAuthenticode($script:msSigned)
         $result.Status.ToString() | Should -BeIn $script:accepted -Because $result.Message
-        $result.RootSubject | Should -Match 'Microsoft Root'
+        $result.RootThumbprint | Should -BeIn $script:microsoftRoots
     }
 
     It 'rejects a validly signed file whose root is not Microsoft' -Skip:(-not $script:hasThirdParty) {
