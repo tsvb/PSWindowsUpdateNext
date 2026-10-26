@@ -95,6 +95,45 @@ Describe 'Windows Update Agent access' {
     }
 }
 
+Describe 'Authenticode verification of downloaded files' {
+    BeforeDiscovery {
+        # Both files ship with an embedded Authenticode signature on GitHub's windows-latest image.
+        # pwsh.exe is signed by Microsoft; git.exe is signed by the Git for Windows maintainers.
+        $msSigned = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+        $thirdParty = Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
+        $script:hasMsSigned = Test-Path -LiteralPath $msSigned
+        $script:hasThirdParty = Test-Path -LiteralPath $thirdParty
+    }
+
+    BeforeAll {
+        Import-Module $script:manifest -Force -ErrorAction Stop
+        $script:msSigned = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+        $script:thirdParty = Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
+        # Accepted outcomes for a genuine Microsoft signature: revocation may be unreachable from a runner.
+        $script:accepted = 'Valid', 'RevocationUnknown'
+    }
+
+    It 'accepts a Microsoft-signed file' -Skip:(-not $script:hasMsSigned) {
+        $result = [PSWindowsUpdateNext.WUFileVerifier]::VerifyAuthenticode($script:msSigned)
+        $result.Status.ToString() | Should -BeIn $script:accepted -Because $result.Message
+        $result.RootSubject | Should -Match 'Microsoft Root'
+    }
+
+    It 'rejects a validly signed file whose root is not Microsoft' -Skip:(-not $script:hasThirdParty) {
+        $result = [PSWindowsUpdateNext.WUFileVerifier]::VerifyAuthenticode($script:thirdParty)
+        $result.Status.ToString() | Should -Be 'NotMicrosoftRoot' -Because $result.Message
+        $result.IsValid | Should -BeFalse
+    }
+
+    It 'rejects an unsigned file' {
+        $path = Join-Path $TestDrive 'unsigned.ps1'
+        Set-Content -LiteralPath $path -Value 'Write-Output "unsigned"'
+        $result = [PSWindowsUpdateNext.WUFileVerifier]::VerifyAuthenticode($path)
+        $result.Status.ToString() | Should -Be 'NotSigned' -Because $result.Message
+        $result.IsValid | Should -BeFalse
+    }
+}
+
 Describe 'Microsoft Update Catalog' -Tag 'Network' {
     BeforeAll {
         Import-Module $script:manifest -Force -ErrorAction Stop
