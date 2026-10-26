@@ -1,0 +1,25 @@
+version: 2
+
+# Weekly update checks. Minor and patch updates are grouped into one pull request per ecosystem;
+# major updates are proposed individually. The action pins in build.yml are commit SHAs with a
+# version comment, which Dependabot updates in place.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: nuget
+    directory: /src/PSWindowsUpdateNext
+    schedule:
+      interval: weekly
+    groups:
+      nuget:
+        update-types:
+          - minor
+          - patch
