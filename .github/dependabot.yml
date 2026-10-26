@@ -24,6 +24,14 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Named pins as well: the wildcard rule above did not stop the 10.x pull requests (#11 to #13).
+      # PowerShell 7.4 ships version 8 of these; a newer reference fails to load there.
+      - dependency-name: "System.Management"
+        versions: [">= 9"]
+      - dependency-name: "System.Security.Cryptography.ProtectedData"
+        versions: [">= 9"]
+      - dependency-name: "System.ServiceProcess.ServiceController"
+        versions: [">= 9"]
     groups:
       nuget:
         update-types:
@@ -35,6 +43,10 @@ updates:
     directory: /tests/PSWindowsUpdateNext.UnitTests
     schedule:
       interval: weekly
+    # The tests load the module's DPAPI helpers, so keep ProtectedData on the version PowerShell 7.4 ships.
+    ignore:
+      - dependency-name: "System.Security.Cryptography.ProtectedData"
+        versions: [">= 9"]
     groups:
       test-packages:
         update-types:
