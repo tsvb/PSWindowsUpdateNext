@@ -13,7 +13,7 @@ First release published to GitHub Releases and the PowerShell Gallery.
 ### Added
 - Release pipeline: a tag must match the manifest, the project file, and this changelog. Signing runs in its own job. The GitHub release carries a zip and a SHA-256 checksum file, and publishing to the PowerShell Gallery waits for approval through the `release` environment. See `docs/RELEASING.md`.
 - `Get-WUOfflineMSU` output files report `SignatureStatus` and `SignerSubject`, and failure messages say why a signature was rejected.
-- Help source in `docs/help` as platyPS markdown, one page per cmdlet. `tools/Build-Help.ps1` regenerates the compiled help, and CI rebuilds it from the markdown on every build.
+- Help source in `docs/help` as platyPS markdown, one page per cmdlet. `tools/Build-Help.ps1` regenerates the compiled help, and CI fails if the committed help is out of date with the markdown.
 - Tests that run the signature check on a Microsoft-signed file, a third-party-signed file, and an unsigned file.
 
 ### Changed

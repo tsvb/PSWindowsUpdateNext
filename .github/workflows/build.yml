@@ -30,21 +30,13 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # docs/help is the source of truth for Get-Help. Regenerate the MAML before building so every
-      # built and released module carries help that matches the markdown.
-      - name: Generate help from markdown
+      # docs/help is the source of truth for Get-Help. Fail if the committed MAML is not what the
+      # markdown produces. PlatyPS is pinned because another version can format the XML differently.
+      - name: Check help is in sync with docs/help
         shell: pwsh
         run: |
           Install-PSResource -Name Microsoft.PowerShell.PlatyPS -Version '1.0.3' -Scope CurrentUser -TrustRepository
-          $platyps = Get-Module -ListAvailable Microsoft.PowerShell.PlatyPS | Sort-Object Version -Descending | Select-Object -First 1
-          Write-Host "Microsoft.PowerShell.PlatyPS $($platyps.Version)"
-          ./tools/Build-Help.ps1
-          git diff --quiet -- module/PSWindowsUpdateNext.dll-Help.xml
-          if ($LASTEXITCODE -ne 0) {
-            git --no-pager diff --stat -- module/PSWindowsUpdateNext.dll-Help.xml
-            Write-Host '::warning title=Help XML out of date::module/PSWindowsUpdateNext.dll-Help.xml differs from what docs/help produces. The built module uses the regenerated file; run tools/Build-Help.ps1 and commit the result.'
-          }
-          $global:LASTEXITCODE = 0
+          ./tools/Build-Help.ps1 -Check
 
       - name: Build module
         shell: pwsh
