@@ -30,6 +30,7 @@
     Do not sign; only verify that every signable file has a valid, timestamped signature.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Sign')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '', Justification = 'The password arrives as a CI secret in an environment variable, already plain text; a SecureString parameter would only be built with ConvertTo-SecureString -AsPlainText.')]
 param(
     [Parameter(Mandatory)]
     [string]$ModulePath,
@@ -122,6 +123,7 @@ function Confirm-Signature {
 # using the ANSI code page, so a BOM-less UTF-8 script containing non-ASCII characters would verify as
 # HashMismatch there. Make sure such files carry a UTF-8 BOM before they are signed.
 function Set-Utf8BomIfNeeded {
+    [CmdletBinding(SupportsShouldProcess)]
     param([string]$Path)
 
     $bytes = [System.IO.File]::ReadAllBytes($Path)
@@ -138,8 +140,10 @@ function Set-Utf8BomIfNeeded {
     $withBom = New-Object byte[] ($bytes.Length + 3)
     $withBom[0] = 0xEF; $withBom[1] = 0xBB; $withBom[2] = 0xBF
     [System.Array]::Copy($bytes, 0, $withBom, 3, $bytes.Length)
-    [System.IO.File]::WriteAllBytes($Path, $withBom)
-    Write-Warning "Added a UTF-8 BOM to '$Path' (it contains non-ASCII characters) so Windows PowerShell 5.1 reads it the way it was signed."
+    if ($PSCmdlet.ShouldProcess($Path, 'Add a UTF-8 BOM')) {
+        [System.IO.File]::WriteAllBytes($Path, $withBom)
+        Write-Warning "Added a UTF-8 BOM to '$Path' (it contains non-ASCII characters) so Windows PowerShell 5.1 reads it the way it was signed."
+    }
 }
 
 $files = @(Get-SignableFile -Root $root)

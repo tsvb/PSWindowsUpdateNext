@@ -4,6 +4,11 @@
     to the folder that holds PSWindowsUpdateNext.psd1.
 #>
 
+# Pester 5 hands variables from BeforeDiscovery and BeforeAll to the It blocks through its own scopes, which
+# PSScriptAnalyzer cannot follow, so it reports them as assigned but never used.
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester shares variables between BeforeAll/BeforeDiscovery and It blocks.')]
+param()
+
 BeforeDiscovery {
     # Discovery-time values feed -ForEach; run-time blocks recompute the path (Pester 5 keeps the scopes apart).
     $modulePath = if ($env:PSWU_MODULE_PATH) { $env:PSWU_MODULE_PATH } else { Join-Path $PSScriptRoot '..\out\PSWindowsUpdateNext' }

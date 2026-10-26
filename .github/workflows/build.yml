@@ -43,6 +43,38 @@ jobs:
           Install-PSResource -Name Microsoft.PowerShell.PlatyPS -Version '1.0.3' -Scope CurrentUser -TrustRepository
           ./tools/Build-Help.ps1 -Check
 
+      # Lint the PowerShell. PSScriptAnalyzer is pinned because a newer release can add rules and turn a
+      # green build red. Settings, and the reasons for each excluded rule, are in PSScriptAnalyzerSettings.psd1.
+      # Every Error or Warning becomes an annotation on the file and line, and any finding fails the step.
+      - name: Lint PowerShell (PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          Install-PSResource -Name PSScriptAnalyzer -Version '1.24.0' -Scope CurrentUser -TrustRepository
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.24.0
+
+          $settings = Join-Path -Path $PWD.Path -ChildPath 'PSScriptAnalyzerSettings.psd1'
+          $targets = 'module/PSWindowsUpdateNext.psm1', 'build.ps1', 'tools', 'tests', 'module/Gui'
+          $findings = @(foreach ($target in $targets) {
+              Invoke-ScriptAnalyzer -Path $target -Recurse -Settings $settings
+          })
+
+          foreach ($f in $findings) {
+              # ParseError records are failures too; the settings file only filters rule severities.
+              $level = if ($f.Severity -eq 'Warning') { 'warning' } else { 'error' }
+              $file = [System.IO.Path]::GetRelativePath($PWD.Path, $f.ScriptPath).Replace('\', '/')
+              $text = $f.Message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+              $title = if ($f.RuleName) { $f.RuleName } else { $f.Severity }
+              Write-Host "::$level file=${file},line=$($f.Line),col=$($f.Column),title=${title}::${text}"
+          }
+
+          if ($findings.Count -gt 0) {
+              $findings | Group-Object -Property RuleName | Sort-Object -Property Count -Descending |
+                  Format-Table -Property Count, Name -AutoSize | Out-String | Write-Host
+              Write-Host "::error title=PSScriptAnalyzer::$($findings.Count) finding(s). See the annotations above."
+              exit 1
+          }
+          Write-Host 'PSScriptAnalyzer: no findings.'
+
       - name: Build module
         shell: pwsh
         run: ./build.ps1 -Configuration Release

@@ -6,16 +6,26 @@
 - `Show-PSWUConsole` no longer compiles `Gui\Models.cs` with `Add-Type` or loads loose XAML files at run time. The row types are now part of `PSWindowsUpdateNext.dll` and the two XAML files are embedded in it, so under an `AllSigned` policy everything the console executes is covered by the signature. The console no longer calls `Add-Type` on source code, so it needs no C# compiler. `Gui\MainWindow.xaml`, `Gui\Theme.xaml`, and `Gui\Models.cs` are removed from the module folder.
 - The console's "Restart as administrator" button no longer starts the elevated host with `-ExecutionPolicy Bypass`, so it respects the execution policy the administrator set. It now passes the command with `-EncodedCommand`, which also fixes a module path that contains a single quote.
 
-### Tests
-- The desktop console test now runs. Pester 5 decides `-Skip` while it discovers tests, and the old apartment check ran too late, so the test was always skipped. CI also runs it in explicit STA hosts for PowerShell 7 and Windows PowerShell 5.1 and fails if the window is not built.
-
 ### Added
 - `SECURITY.md` explains how to report a vulnerability privately. `CONTRIBUTING.md` explains how to build, test, update help and open a pull request.
 - Dependabot checks the GitHub Actions and NuGet dependencies every week.
+- Static analysis in CI. The C# project builds with the .NET analyzers (`AnalysisLevel` 8.0, default rule set plus every security rule) and treats warnings as errors; the settings and each suppression with its reason are in `.editorconfig`. A new CI step runs PSScriptAnalyzer (pinned to 1.24.0, `PSScriptAnalyzerSettings.psd1`) over the loader, `build.ps1`, `tools`, `tests`, and `module/Gui`, and fails on any Error or Warning.
 
 ### Changed
 - Every build checks that `ModuleVersion` and the project file agree on the version, not only release tags.
 - The GitHub Actions used by the build are pinned to commit SHAs.
+- `Set-WUSettings` no longer discards why a write failed. The error for a value it could not set now names the computer and the value and carries the exception message instead of a fixed "Access denied.". Reading the current value of a setting that is not set is still silent, but the reason now appears with `-Debug`.
+- Failures of service restarts (`Add-WUServiceManager`, `Remove-WUServiceManager`), service stop and start and external commands (`Reset-WUComponents`), and saving or loading `PSWUSettings.xml` (`Set-PSWUSettings`) are reported as warnings. They were silent.
+- All native calls resolve their DLL from System32 only.
+
+### Fixed
+- Removed the three compiler warnings (each reported once per target): an ignored attribute in `INetFwPolicy2`, an unused variable in `ConvertSize`, and a `catch` that only rethrew in `WUCimSession.InstallUpdates`.
+
+### Tests
+- The desktop console test now runs. Pester 5 decides `-Skip` while it discovers tests, and the old apartment check ran too late, so the test was always skipped. CI also runs it in explicit STA hosts for PowerShell 7 and Windows PowerShell 5.1 and fails if the window is not built.
+
+### Known issues
+- `Set-PSWUSettings` derives the key that protects the saved SMTP credential from the current UTC minute (`System.Random`). That is obfuscation, not encryption. Analyzer rule CA5394 is suppressed for that file until the stored format can change.
 
 ## 3.2.0 (2026-10-26)
 
