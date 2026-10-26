@@ -18,6 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Every build: ModuleVersion and the csproj versions must agree.
+      - name: Check version consistency
+        shell: pwsh
+        run: ./tools/Assert-ReleaseVersion.ps1
+
       # Fail fast, before building and testing, if a release tag disagrees with the repository.
       - name: Check release version (tags only)
         if: startsWith(github.ref, 'refs/tags/v')

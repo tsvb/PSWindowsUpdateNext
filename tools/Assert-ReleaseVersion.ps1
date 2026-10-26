@@ -1,38 +1,51 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Fails unless a release tag, the module manifest, the csproj and CHANGELOG.md all agree on the version.
+    Fails unless the module manifest and the csproj agree on the version. With -Tag, also checks the tag and CHANGELOG.md.
 .DESCRIPTION
-    Checks that
+    Always checks that
+      - ModuleVersion in module\PSWindowsUpdateNext.psd1 is <major>.<minor>.<patch>[.<revision>],
+      - <Version> in src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj equals ModuleVersion
+        (and AssemblyVersion / FileVersion, when present, start with ModuleVersion + ".").
+    When -Tag is given, also checks that
       - the tag looks like v<version>,
-      - ModuleVersion in module\PSWindowsUpdateNext.psd1 equals <version>,
-      - <Version> in src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj equals <version>
-        (and AssemblyVersion / FileVersion, when present, start with <version>.),
+      - ModuleVersion equals <version>,
       - CHANGELOG.md has a non-empty section for <version>.
 .PARAMETER Tag
-    The tag name, for example v3.1.0 (in GitHub Actions: github.ref_name).
+    Optional. The tag name, for example v3.1.0 (in GitHub Actions: github.ref_name). When omitted,
+    the version is ModuleVersion and CHANGELOG.md is not checked, because unreleased work is allowed.
 .PARAMETER RepoRoot
     Repository root. Defaults to the parent of this script's folder.
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)]
     [string]$Tag,
 
     [string]$RepoRoot = (Split-Path -Path $PSScriptRoot -Parent)
 )
 
 $ErrorActionPreference = 'Stop'
+# Use PSBoundParameters so that an empty -Tag is still checked as a tag, not treated as omitted.
+$tagGiven = $PSBoundParameters.ContainsKey('Tag')
 
-if (-not ($Tag -match '^v(?<v>\d+\.\d+\.\d+(\.\d+)?)$')) {
-    throw "Release tag '$Tag' is not of the form v<major>.<minor>.<patch> (for example v3.1.0)."
+if ($tagGiven) {
+    if (-not ($Tag -match '^v(?<v>\d+\.\d+\.\d+(\.\d+)?)$')) {
+        throw "Release tag '$Tag' is not of the form v<major>.<minor>.<patch> (for example v3.1.0)."
+    }
+    $version = $Matches['v']
 }
-$version = $Matches['v']
 
 $manifestPath = Join-Path -Path $RepoRoot -ChildPath 'module/PSWindowsUpdateNext.psd1'
 $csprojPath = Join-Path -Path $RepoRoot -ChildPath 'src/PSWindowsUpdateNext/PSWindowsUpdateNext.csproj'
 
 $manifestVersion = [string](Import-PowerShellDataFile -LiteralPath $manifestPath).ModuleVersion
+
+if (-not $tagGiven) {
+    $version = $manifestVersion
+    if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+        throw "ModuleVersion '$version' in module/PSWindowsUpdateNext.psd1 is not of the form <major>.<minor>.<patch>."
+    }
+}
 
 [xml]$csproj = Get-Content -LiteralPath $csprojPath -Raw
 $props = @($csproj.Project.PropertyGroup)
@@ -53,15 +66,25 @@ foreach ($name in 'AssemblyVersion', 'FileVersion') {
     if ($value -and -not $value.StartsWith("$version.")) { $errors.Add("PSWindowsUpdateNext.csproj <$name> is '$value'") }
 }
 
-try {
-    [void](& (Join-Path -Path $PSScriptRoot -ChildPath 'Get-ReleaseNotes.ps1') -Version $version -ChangelogPath (Join-Path -Path $RepoRoot -ChildPath 'CHANGELOG.md'))
-} catch {
-    $errors.Add($_.Exception.Message)
+if ($tagGiven) {
+    try {
+        [void](& (Join-Path -Path $PSScriptRoot -ChildPath 'Get-ReleaseNotes.ps1') -Version $version -ChangelogPath (Join-Path -Path $RepoRoot -ChildPath 'CHANGELOG.md'))
+    } catch {
+        $errors.Add($_.Exception.Message)
+    }
 }
 
 if ($errors.Count -gt 0) {
     $list = ($errors | ForEach-Object { "  - $_" }) -join "`n"
-    throw "Tag $Tag (version $version) does not match the repository:`n$list`nBump the versions / changelog, commit, and re-tag."
+    if ($tagGiven) {
+        throw "Tag $Tag (version $version) does not match the repository:`n$list`nBump the versions / changelog, commit, and re-tag."
+    }
+    throw "Version numbers in the repository do not agree (ModuleVersion $version):`n$list`nSet the same version in module/PSWindowsUpdateNext.psd1 and the csproj."
 }
 
-Write-Host "Version check passed: tag $Tag = ModuleVersion = csproj Version = $version, CHANGELOG section present."
+if ($tagGiven) {
+    Write-Host "Version check passed: tag $Tag = ModuleVersion = csproj Version = $version, CHANGELOG section present."
+}
+else {
+    Write-Host "Version check passed: ModuleVersion = csproj Version = $version (no tag given, so CHANGELOG.md was not checked)."
+}
