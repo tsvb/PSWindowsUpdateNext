@@ -14,7 +14,7 @@ namespace PSWindowsUpdateNext;
 /// <summary>
 /// <para type="synopsis">Get offline MSU package.</para>
 /// <para type="description">Use Get-WUOfflineMSU cmdlet to download MSU package from Microsoft Update Catalog website.</para>
-/// <para type="description">Every file is downloaded over HTTPS, checked against the SHA-1 digest the Catalog publishes, and its Authenticode signature is verified. Files that fail either check are deleted.</para>
+/// <para type="description">Every file is downloaded over HTTPS, checked against the SHA-1 digest the Catalog publishes, and its Authenticode signature is verified, including certificate revocation, and must chain to a Microsoft root CA. Files that fail either check are deleted. If revocation cannot be checked (for example, offline or behind a proxy), a file that matched the Catalog digest is kept with a warning.</para>
 /// </summary>
 /// <para type="link" uri="https://commandlinegeeks.wordpress.com/">Author Blog</para>
 ///  <example>
@@ -120,7 +120,7 @@ public class GetWUOfflineMSU : PSCmdlet
 	public SwitchParameter AcceptAll { get; set; }
 
 	/// <summary>
-	/// <para type="description">Keep files whose Authenticode signature cannot be verified (the SHA-1 digest is always enforced).</para>
+	/// <para type="description">Keep, with a warning, files that fail the Authenticode check instead of deleting them: unsigned, untrusted, revoked, or not signed under a Microsoft root CA. The SHA-1 digest is always enforced.</para>
 	/// </summary>
 	[Parameter]
 	public SwitchParameter SkipSignatureCheck { get; set; }
