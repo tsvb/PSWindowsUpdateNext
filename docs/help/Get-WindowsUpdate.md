@@ -1031,7 +1031,7 @@ HelpMessage: ''
 
 ### -ScheduleJob
 
-Runs the download, installation, or hide operation as a one-time scheduled task at this date and time instead of immediately. The task runs as SYSTEM. The value must be in the future.
+Runs the download or installation as a one-time scheduled task at this date and time instead of immediately. The task runs as SYSTEM. The value must be in the future.
 
 ```yaml
 Type: System.DateTime

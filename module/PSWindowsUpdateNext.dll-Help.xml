@@ -2657,7 +2657,7 @@ A flag that does not apply is shown as -. After -Hide or -Hide:$false, the strin
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>ScheduleJob</maml:name>
         <maml:description>
-          <maml:para>Runs the download, installation, or hide operation as a one-time scheduled task at this date and time instead of immediately. The task runs as SYSTEM. The value must be in the future.</maml:para>
+          <maml:para>Runs the download or installation as a one-time scheduled task at this date and time instead of immediately. The task runs as SYSTEM. The value must be in the future.</maml:para>
         </maml:description>
         <command:parameterValue required="true" variableLength="true">System.DateTime</command:parameterValue>
         <dev:type>
