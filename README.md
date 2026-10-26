@@ -127,6 +127,7 @@ dangerous elsewhere, so they are called out here.
 dotnet build src\PSWindowsUpdateNext\PSWindowsUpdateNext.csproj -c Release
 .\build.ps1            # assembles out\PSWindowsUpdateNext
 Invoke-Pester .\tests  # smoke tests, run after build.ps1
+dotnet test tests\PSWindowsUpdateNext.UnitTests -c Release   # C# unit tests; the DPAPI tests run on Windows only
 ```
 
 Help for `Get-Help` is written as markdown in `docs/help`. After editing a page, run
