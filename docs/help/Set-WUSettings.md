@@ -17,39 +17,37 @@ Set Windows Update Client settings.
 
 ## SYNTAX
 
-### UNNAMED_PARAMETER_SET_1
+### __AllParameterSets
 
 ```
-Set-WUSettings [-AcceptTrustedPublisherCerts] [-ActiveHoursEnd <int>] [-ActiveHoursMaxRange <int>]
- [-ActiveHoursStart <int>] [-AllowAutoWindowsUpdateDownloadOverMeteredNetwork]
- [-AlwaysAutoRebootAtScheduledTime] [-AlwaysAutoRebootAtScheduledTimeMinutes <int>]
- [-AUPowerManagement] [-AutoInstallMinorUpdates] [-AutoRestartNotificationSchedule <int>]
- [-AutoRestartRequiredNotificationDismissal <string>] [-ComputerName <string[]>] [-Debuger]
- [-DeferFeatureUpdatesPeriodInDays <int>] [-DeferQualityUpdatesPeriodInDays <int>]
- [-DeferUpdatePeriod <int>] [-DeferUpgrade] [-DeferUpgradePeriod <int>] [-DetectionFrequency <int>]
- [-DetectionFrequencyEnabled] [-DisableWindowsUpdateAccess] [-DisableWUfBSafeguards]
- [-ElevateNonAdmins] [-EnableFeaturedSoftware] [-IncludeRecommendedUpdates]
- [-ManagePreviewBuilds <int>] [-NoAUShutdownOption] [-NoAutoRebootWithLoggedOnUsers] [-NoAutoUpdate]
- [-NotificationLevel <string>] [-PauseDeferrals] [-ProductVersion <string>]
- [-PSWUSettings <Hashtable>] [-RebootRelaunchTimeout <int>] [-RebootRelaunchTimeoutEnabled]
- [-RebootWarningTimeout <int>] [-RebootWarningTimeoutEnabled] [-RescheduleWaitTime <int>]
- [-RescheduleWaitTimeEnabled] [-ScheduledInstallDay <string>] [-ScheduledInstallTime <int>]
- [-ScheduleImminentRestartWarning <int>] [-ScheduleRestartWarning <int>] [-SendReport]
- [-SetActiveHours] [-SetActiveHoursMaxRange] [-SetAutoRestartNotificationConfig]
- [-SetAutoRestartNotificationDisable] [-SetAutoRestartRequiredNotificationDismissal]
- [-SetDisablePauseUXAccess] [-SetDisableUXWUAccess] [-SetEDURestart]
- [-SetPolicyDrivenUpdateSourceForDriverUpdates] [-SetPolicyDrivenUpdateSourceForFeatureUpdates]
- [-SetPolicyDrivenUpdateSourceForOtherUpdates] [-SetPolicyDrivenUpdateSourceForQualityUpdates]
- [-SetRestartWarningSchd] [-SetUpdateNotificationLevel] [-TargetGroup <string>]
- [-TargetGroupEnabled] [-TargetReleaseVersion] [-TargetReleaseVersionInfo <string>]
- [-UpdateNotificationLevel <string>] [-UseUpdateClassPolicySource] [-UseWUServer]
- [-WUServer <string>] [<CommonParameters>]
+Set-WUSettings [-ComputerName <string[]>] [-SendReport] [-PSWUSettings <hashtable>]
+ [-AcceptTrustedPublisherCerts] [-DisableWindowsUpdateAccess] [-ElevateNonAdmins]
+ [-TargetGroup <string>] [-TargetGroupEnabled] [-WUServer <string>] [-NotificationLevel <string>]
+ [-AutoInstallMinorUpdates] [-DetectionFrequency <int>] [-DetectionFrequencyEnabled]
+ [-IncludeRecommendedUpdates] [-NoAutoRebootWithLoggedOnUsers] [-NoAutoUpdate]
+ [-RebootRelaunchTimeout <int>] [-RebootRelaunchTimeoutEnabled] [-RebootWarningTimeout <int>]
+ [-RebootWarningTimeoutEnabled] [-ScheduledInstallDay <string>] [-ScheduledInstallTime <int>]
+ [-UseWUServer] [-TargetReleaseVersion] [-TargetReleaseVersionInfo <string>]
+ [-ProductVersion <string>] [-DeferFeatureUpdatesPeriodInDays <int>]
+ [-DeferQualityUpdatesPeriodInDays <int>] [-DisableWUfBSafeguards] [-ManagePreviewBuilds <int>]
+ [-AllowAutoWindowsUpdateDownloadOverMeteredNetwork] [-AlwaysAutoRebootAtScheduledTime]
+ [-AlwaysAutoRebootAtScheduledTimeMinutes <int>] [-SetAutoRestartNotificationConfig]
+ [-AutoRestartNotificationSchedule <int>] [-SetAutoRestartRequiredNotificationDismissal]
+ [-AutoRestartRequiredNotificationDismissal <string>] [-SetRestartWarningSchd]
+ [-ScheduleRestartWarning <int>] [-ScheduleImminentRestartWarning <int>] [-DeferUpgrade]
+ [-DeferUpgradePeriod <int>] [-DeferUpdatePeriod <int>] [-PauseDeferrals]
+ [-SetUpdateNotificationLevel] [-UpdateNotificationLevel <string>] [-NoAUShutdownOption]
+ [-AUPowerManagement] [-SetDisablePauseUXAccess] [-SetDisableUXWUAccess]
+ [-RescheduleWaitTimeEnabled] [-RescheduleWaitTime <int>] [-SetActiveHoursMaxRange]
+ [-ActiveHoursMaxRange <int>] [-UseUpdateClassPolicySource]
+ [-SetPolicyDrivenUpdateSourceForFeatureUpdates] [-SetPolicyDrivenUpdateSourceForQualityUpdates]
+ [-SetPolicyDrivenUpdateSourceForDriverUpdates] [-SetPolicyDrivenUpdateSourceForOtherUpdates]
+ [-SetActiveHours] [-ActiveHoursStart <int>] [-ActiveHoursEnd <int>]
+ [-SetAutoRestartNotificationDisable] [-EnableFeaturedSoftware] [-SetEDURestart] [-Debuger]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -72,7 +70,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -89,7 +93,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -106,7 +116,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -123,7 +139,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -140,7 +162,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -157,7 +185,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -174,27 +208,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -AUOptions
-
-Notify mode: "Not configured", "Disabled", "Notify before download", "Notify before installation", "Scheduled installation", "Users configure"
-
-Supported on: Windows XP Professional Service Pack 1 or At least Windows 2000 Service Pack 3 Option 7 only supported on servers of at least Windows Server 2016 edition​
-
-This is an alias of the NotificationLevel parameter.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- AUOptions
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -211,7 +231,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -228,7 +254,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -245,9 +277,20 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- 15
+- 30
+- 60
+- 120
+- 240
 HelpMessage: ''
 ```
 
@@ -262,9 +305,17 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Auto
+- User Action
 HelpMessage: ''
 ```
 
@@ -277,7 +328,35 @@ Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Confirm
+
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -292,7 +371,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -309,7 +394,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -326,7 +417,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -343,7 +440,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -360,7 +463,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -377,7 +486,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -394,7 +509,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -411,7 +532,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -428,7 +555,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -445,7 +578,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -462,7 +601,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -479,7 +624,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -496,7 +647,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -521,7 +678,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -538,7 +701,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -555,7 +724,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -572,7 +747,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -590,9 +771,21 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - AUOptions
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Not configured
+- Disabled
+- Notify before download
+- Notify before installation
+- Scheduled installation
+- Users configure
 HelpMessage: ''
 ```
 
@@ -607,7 +800,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -624,7 +823,13 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -643,7 +848,13 @@ Type: System.Collections.Hashtable
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -660,7 +871,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -677,7 +894,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -694,7 +917,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -711,7 +940,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -728,7 +963,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -745,7 +986,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -762,9 +1009,23 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- Every Day
+- Every Sunday
+- Every Monday
+- Every Tuesday
+- Every Wednesday
+- Every Thursday
+- Every Friday
+- EverySaturday
 HelpMessage: ''
 ```
 
@@ -779,7 +1040,13 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -796,9 +1063,18 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- 15
+- 30
+- 60
 HelpMessage: ''
 ```
 
@@ -813,9 +1089,20 @@ Type: System.Int32
 DefaultValue: 0
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- 2
+- 4
+- 8
+- 12
+- 24
 HelpMessage: ''
 ```
 
@@ -830,7 +1117,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -847,7 +1140,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -864,7 +1163,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -881,7 +1186,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -898,7 +1209,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -915,7 +1232,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -932,7 +1255,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -949,7 +1278,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -966,7 +1301,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -983,7 +1324,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1000,7 +1347,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1017,7 +1370,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1034,7 +1393,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1051,7 +1416,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1068,7 +1439,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1085,7 +1462,13 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1102,7 +1485,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1119,7 +1508,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1136,7 +1531,13 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1153,9 +1554,18 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+- DefaultOS
+- DisableAllExcludingRestart
+- DisableAllIncludingRestart
 HelpMessage: ''
 ```
 
@@ -1170,7 +1580,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1187,7 +1603,35 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -WhatIf
+
+Runs the command in a mode that only reports what would happen without performing the actions.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -1204,7 +1648,13 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''

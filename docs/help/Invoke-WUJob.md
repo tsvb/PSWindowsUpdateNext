@@ -17,34 +17,31 @@ Invoke WUJobs by Task Schduler.
 
 ## SYNTAX
 
-### UNNAMED_PARAMETER_SET_1
+### RunNow (Default)
 
 ```
-Invoke-WUJob -TriggerDate <DateTime> [-ComputerName <string[]>] [-Credential <PSCredential>]
- [-Debuger] [-EndBoundary <DateTime>] [-Force] [-Hidden] [-Script <string>] [-TaskName <string>]
+Invoke-WUJob -RunNow [-ComputerName <string[]>] [-Credential <pscredential>] [-TaskName <string>]
+ [-Hidden] [-EndBoundary <datetime>] [-Script <string>] [-Force] [-Debuger] [-WhatIf] [-Confirm]
  [<CommonParameters>]
 ```
 
-### UNNAMED_PARAMETER_SET_2
+### TriggerDate
 
 ```
-Invoke-WUJob -TriggerAtStart [-ComputerName <string[]>] [-Credential <PSCredential>] [-Debuger]
- [-EndBoundary <DateTime>] [-Force] [-Hidden] [-Script <string>] [-TaskName <string>]
- [<CommonParameters>]
+Invoke-WUJob -TriggerDate <datetime> [-ComputerName <string[]>] [-Credential <pscredential>]
+ [-TaskName <string>] [-Hidden] [-EndBoundary <datetime>] [-Script <string>] [-Force] [-Debuger]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
-### UNNAMED_PARAMETER_SET_3
+### TriggerAtStart
 
 ```
-Invoke-WUJob -RunNow [-ComputerName <string[]>] [-Credential <PSCredential>] [-Debuger]
- [-EndBoundary <DateTime>] [-Force] [-Hidden] [-Script <string>] [-TaskName <string>]
- [<CommonParameters>]
+Invoke-WUJob -TriggerAtStart [-ComputerName <string[]>] [-Credential <pscredential>]
+ [-TaskName <string>] [-Hidden] [-EndBoundary <datetime>] [-Script <string>] [-Force] [-Debuger]
+ [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -65,7 +62,35 @@ Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Confirm
+
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -80,7 +105,13 @@ Type: System.Management.Automation.PSCredential
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -95,7 +126,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -110,7 +147,13 @@ Type: System.DateTime
 DefaultValue: 01.01.0001 00:00:00
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -125,7 +168,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -140,7 +189,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: True
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -155,7 +210,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: RunNow
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -170,7 +231,13 @@ Type: System.String
 DefaultValue: ipmo PSWindowsUpdateNext; Get-WindowsUpdate -AcceptAll -Install | Out-File $Env:TEMP\PSWindowsUpdateNext.log
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -185,7 +252,13 @@ Type: System.String
 DefaultValue: PSWindowsUpdateNext
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -200,7 +273,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: TriggerAtStart
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -215,7 +294,35 @@ Type: System.DateTime
 DefaultValue: 01.01.0001 00:00:00
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: TriggerDate
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -WhatIf
+
+Runs the command in a mode that only reports what would happen without performing the actions.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''

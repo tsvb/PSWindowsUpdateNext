@@ -17,26 +17,23 @@ Uninstall update.
 
 ## SYNTAX
 
-### UNNAMED_PARAMETER_SET_1
+### WUSAMode
 
 ```
-Remove-WindowsUpdate -KBArticleID <string> [-AutoReboot] [-ComputerName <string[]>] [-Debuger]
- [-IgnoreReboot] [-ScheduleJob <DateTime>] [-ScheduleReboot <DateTime>] [-WUSAMode]
- [<CommonParameters>]
+Remove-WindowsUpdate -KBArticleID <string> [-ComputerName <string[]>] [-ScheduleJob <datetime>]
+ [-AutoReboot] [-IgnoreReboot] [-ScheduleReboot <datetime>] [-WUSAMode] [-Debuger] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
-### UNNAMED_PARAMETER_SET_2
+### WUApiMode
 
 ```
-Remove-WindowsUpdate -UpdateID <string> [-AutoReboot] [-ComputerName <string[]>] [-Debuger]
- [-IgnoreReboot] [-ScheduleJob <DateTime>] [-ScheduleReboot <DateTime>] [-WUSAMode]
- [<CommonParameters>]
+Remove-WindowsUpdate -UpdateID <string> [-ComputerName <string[]>] [-ScheduleJob <datetime>]
+ [-AutoReboot] [-IgnoreReboot] [-ScheduleReboot <datetime>] [-WUSAMode] [-Debuger] [-WhatIf]
+ [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
-
-This cmdlet has the following aliases,
-  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -55,7 +52,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -70,7 +73,35 @@ Type: System.String[]
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: true
+  ValueFromPipelineByPropertyName: true
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -Confirm
+
+Prompts you for confirmation before running the cmdlet.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- cf
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -85,25 +116,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
-DontShow: false
-AcceptedValues: []
-HelpMessage: ''
-```
-
-### -HotFixID
-
-KBArticleID that will be uninstalled.
-
-This is an alias of the KBArticleID parameter.
-
-```yaml
-Type: System.String
-DefaultValue: ''
-SupportsWildcards: false
-Aliases:
-- HotFixID
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -118,7 +137,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -134,7 +159,13 @@ DefaultValue: ''
 SupportsWildcards: false
 Aliases:
 - HotFixID
-ParameterSets: []
+ParameterSets:
+- Name: WUSAMode
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -149,7 +180,13 @@ Type: System.DateTime
 DefaultValue: 01.01.0001 00:00:00
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -164,7 +201,13 @@ Type: System.DateTime
 DefaultValue: 01.01.0001 00:00:00
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -179,7 +222,35 @@ Type: System.String
 DefaultValue: ''
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: WUApiMode
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+
+### -WhatIf
+
+Runs the command in a mode that only reports what would happen without performing the actions.
+
+```yaml
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases:
+- wi
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
@@ -194,7 +265,13 @@ Type: System.Management.Automation.SwitchParameter
 DefaultValue: False
 SupportsWildcards: false
 Aliases: []
-ParameterSets: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
 HelpMessage: ''
