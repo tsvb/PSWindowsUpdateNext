@@ -176,37 +176,35 @@ public class EnableWURemoting : PSCmdlet
 			}
 			if ((bool)LocalAccountTokenFilterPolicy)
 			{
+				// Both settings only matter for remote access with local accounts, and both weaken it, so they
+				// are applied only when the caller asks for them.
 				WriteVerbose("Set LocalAccountTokenFilterPolicy=1 registry entry");
 				RegistryKey registryKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
 				RegistryKey registryKey2 = registryKey.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\system\\", writable: true);
 				registryKey2.SetValue("LocalAccountTokenFilterPolicy", Convert.ToInt32(1), RegistryValueKind.DWord);
+				WriteVerbose("Set ForceGuest=0 registry entry (local accounts authenticate as themselves)");
+				RegistryKey lsaKey = registryKey.OpenSubKey("SYSTEM\\CurrentControlSet\\Control\\Lsa\\", writable: true);
+				lsaKey.SetValue("ForceGuest", Convert.ToInt32(0), RegistryValueKind.DWord);
 			}
 			try
 			{
-				string script = "(Get-Item WSMan:\\localhost\\Client\\TrustedHosts).Value -match '\\*';";
-				Collection<PSObject> collection;
-				using (PowerShell powerShell = PowerShell.Create())
+				// Enable-PSRemoting is idempotent. TrustedHosts is deliberately left alone: it is a client-side
+				// list of hosts this computer may send credentials to, and a computer being prepared for remote
+				// management does not need it.
+				WriteVerbose("Enable PSRemoting");
+				using PowerShell powerShell = PowerShell.Create();
+				powerShell.AddScript("Enable-PSRemoting -Force; Start-Service WinRM");
+				powerShell.Invoke();
+				foreach (ErrorRecord remotingError in powerShell.Streams.Error)
 				{
-					powerShell.AddScript(script);
-					collection = powerShell.Invoke();
-				}
-				if (collection[0].ToString() == "False")
-				{
-					WriteVerbose("Enable PSRemoting");
-					script = "Enable -PSRemoting –force; \r\nStart-Service WinRM; \r\nSet-ItemProperty -Path HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System -Name LocalAccountTokenFilterPolicy -Value 1 -Type DWord;\r\nSet-ItemProperty -Path HKLM:\\System\\CurrentControlSet\\Control\\Lsa -Name ForceGuest -Value 0;\r\nSet-Item WSMan:\\localhost\\Client\\TrustedHosts -Value * -Force -Concatenate;";
-					using PowerShell powerShell2 = PowerShell.Create();
-					powerShell2.AddScript(script);
-					collection = powerShell2.Invoke();
-				}
-				else
-				{
-					WriteDebug(DateTime.Now.ToString() + " PSRemoting TrustedHosts are set");
+					WriteError(remotingError);
 				}
 			}
 			catch (Exception exception)
 			{
 				WriteError(new ErrorRecord(exception, "PSRemoting", ErrorCategory.ResourceUnavailable, null));
 			}
+
 			try
 			{
 				uint num = 1u;

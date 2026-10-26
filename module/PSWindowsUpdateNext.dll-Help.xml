@@ -503,7 +503,10 @@ Add-WUServiceManager -ScanFileLocation C:\Offline\wsusscn2.cab -ServiceName 'Off
 - creates or enables the Windows Firewall rule group PSWindowsUpdateNext, with an inbound rule that allows RPC dynamic ports for dllhost.exe (needed for DCOM calls to the Windows Update Agent);
 - enables the Remote Scheduled Tasks Management and Windows Management Instrumentation (WMI) firewall rule groups;
 - sets the Remote Registry service start mode to Automatic if it is Disabled, and starts it if it is stopped;
-- if the WinRM client TrustedHosts list does not already contain *, starts the WinRM service, sets the LocalAccountTokenFilterPolicy registry value to 1 and the ForceGuest value to 0, and adds * to TrustedHosts.
+- turns on PowerShell remoting with Enable-PSRemoting -Force and starts the WinRM service;
+- only with -LocalAccountTokenFilterPolicy, sets the LocalAccountTokenFilterPolicy registry value to 1 and the ForceGuest value to 0.
+
+The cmdlet does not change the WinRM client TrustedHosts list. Earlier releases added * to it without being asked.
 
 These changes lower the security of the computer. Use the cmdlet only in a managed environment, and review the notes before you run it.</maml:para>
     </maml:description>
@@ -616,7 +619,7 @@ These changes lower the security of the computer. Use the cmdlet only in a manag
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>This cmdlet requires an elevated session and stops with an error when the session is not elevated. -WhatIf and -Confirm are accepted but the cmdlet does not check them, so the changes are always made. LocalAccountTokenFilterPolicy=1 disables the UAC remote restrictions for local administrator accounts, and a TrustedHosts value of * lets this computer send credentials to any host over WinRM. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always acts on the local computer. Update-WUModule -Local runs this cmdlet on the remote computer after copying the module.</maml:para>
+        <maml:para>This cmdlet requires an elevated session and stops with an error when the session is not elevated. -WhatIf and -Confirm are accepted but the cmdlet does not check them, so the changes are always made. LocalAccountTokenFilterPolicy=1 disables the UAC remote restrictions for local administrator accounts, and ForceGuest=0 lets local accounts authenticate as themselves instead of as Guest. Both are set only when you use -LocalAccountTokenFilterPolicy. Errors from Enable-PSRemoting are reported. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always acts on the local computer. Update-WUModule -Local runs this cmdlet on the remote computer after copying the module.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -3706,7 +3709,7 @@ The alias Clear-WUJob runs the same cmdlet with the clean-up behavior described 
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>ClearExpired</maml:name>
         <maml:description>
-          <maml:para>Selects the expired-job clean-up. See the notes for how the current release handles this switch.</maml:para>
+          <maml:para>After listing the jobs, deletes the module's jobs whose trigger end boundary has passed and that are not running. The Clear-WUJob alias turns this switch on.</maml:para>
         </maml:description>
         <dev:type>
           <maml:name>System.Management.Automation.SwitchParameter</maml:name>
@@ -3802,7 +3805,7 @@ The alias Clear-WUJob runs the same cmdlet with the clean-up behavior described 
     </command:returnValues>
     <maml:alertSet>
       <maml:alert>
-        <maml:para>After it lists the jobs, the cmdlet deletes the module's jobs whose trigger end boundary has passed and that are not running. In the current release this clean-up is skipped when -ClearExpired is bound explicitly and runs otherwise, including when you call the Clear-WUJob alias. The deletion honors -WhatIf and -Confirm. The cmdlet writes a warning when the session is not elevated.</maml:para>
+        <maml:para>After it lists the jobs, the cmdlet deletes the module's jobs whose trigger end boundary has passed and that are not running. This clean-up runs only with -ClearExpired or when you call the Clear-WUJob alias. Jobs whose end boundary cannot be read are left in place. Earlier releases inverted the switch and cleaned up only when it was not given. The deletion honors -WhatIf and -Confirm. The cmdlet writes a warning when the session is not elevated.</maml:para>
       </maml:alert>
     </maml:alertSet>
     <command:examples>
@@ -6175,7 +6178,7 @@ Performing the operation "Unregister Windows Update Service Manager: 7971f918-a8
       <command:noun>WUComponents</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Resets the Windows Update client to a clean state in ten steps: it stops the BITS, Windows Update, Application Identity, and Cryptographic Services services; deletes the BITS queue files (qmgr*.dat); renames the SoftwareDistribution and catroot2 folders to .bak copies; deletes the old WindowsUpdate.log; resets the BITS and Windows Update service security descriptors; re-registers the related DLLs with regsvr32; resets Winsock and the WinHTTP proxy with netsh; restarts the services; and asks the agent to re-detect updates (wuauclt /resetauthorization /detectnow).
+      <maml:para>Resets the Windows Update client to a clean state in ten steps: it stops the BITS, Windows Update, Application Identity, and Cryptographic Services services; deletes the BITS queue files (qmgr*.dat); renames the SoftwareDistribution and catroot2 folders to .bak copies; deletes the old WindowsUpdate.log; resets the BITS and Windows Update service security descriptors; re-registers the related DLLs in System32 with regsvr32, skipping any that are not present; resets Winsock and the WinHTTP proxy with netsh; restarts the services; and asks the agent to re-detect updates (wuauclt /resetauthorization /detectnow).
 
 Use it when updates fail to download or install because the local update store is damaged. Progress headings are written to the host; use -Verbose to see the individual operations.</maml:para>
     </maml:description>
@@ -6258,12 +6261,12 @@ VERBOSE: Windows Update (wuauserv)
 VERBOSE: Application Identity (appidsvc)
 VERBOSE: Cryptographic Services (cryptsvc)
 Step 2: Delete the qmgr*.dat files
-Step 3: Backup softare distribution folders
+Step 3: Back up software distribution folders
 VERBOSE: Renaming Software Distribution folder to C:\WINDOWS\SoftwareDistribution.bak
 VERBOSE: Renaming CatRoot  folder to C:\WINDOWS\System32\Catroot2.bak
 Step 4: Remove old Windows Update logs
 Step 5: Reset Windows Update services
-Step 6: Reregister dll's
+Step 6: Re-register DLLs
 ...
 Step 7: Reset WinSock
 Step 8: Reset Proxy
@@ -6833,6 +6836,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
             <command:parameterValue required="false" variableLength="false">Every Wednesday</command:parameterValue>
             <command:parameterValue required="false" variableLength="false">Every Thursday</command:parameterValue>
             <command:parameterValue required="false" variableLength="false">Every Friday</command:parameterValue>
+            <command:parameterValue required="false" variableLength="false">Every Saturday</command:parameterValue>
             <command:parameterValue required="false" variableLength="false">EverySaturday</command:parameterValue>
           </command:parameterValueGroup>
           <command:parameterValue required="true" variableLength="false">string</command:parameterValue>
@@ -7656,7 +7660,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
       <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="false" position="Named" aliases="none">
         <maml:name>ScheduledInstallDay</maml:name>
         <maml:description>
-          <maml:para>Sets the day on which Automatic Updates installs updates. Valid values are 'Every Day', 'Every Sunday', 'Every Monday', 'Every Tuesday', 'Every Wednesday', 'Every Thursday', 'Every Friday', and 'EverySaturday'. It is used only when NotificationLevel is 'Scheduled installation'.</maml:para>
+          <maml:para>Sets the day on which Automatic Updates installs updates. Valid values are 'Every Day', 'Every Sunday', 'Every Monday', 'Every Tuesday', 'Every Wednesday', 'Every Thursday', 'Every Friday', and 'Every Saturday'. The spelling 'EverySaturday' from earlier releases is still accepted. Values are not case-sensitive. It is used only when NotificationLevel is 'Scheduled installation'.</maml:para>
           <maml:para>Starting with Windows 8 and Windows Server 2012, the Windows Update Agent no longer reports this value reliably. The operation appears to succeed but has no effect.</maml:para>
         </maml:description>
         <command:parameterValueGroup>
@@ -7667,6 +7671,7 @@ Group Policy overrides these values on the next policy refresh. The cmdlet repor
           <command:parameterValue required="false" variableLength="false">Every Wednesday</command:parameterValue>
           <command:parameterValue required="false" variableLength="false">Every Thursday</command:parameterValue>
           <command:parameterValue required="false" variableLength="false">Every Friday</command:parameterValue>
+          <command:parameterValue required="false" variableLength="false">Every Saturday</command:parameterValue>
           <command:parameterValue required="false" variableLength="false">EverySaturday</command:parameterValue>
         </command:parameterValueGroup>
         <command:parameterValue required="true" variableLength="true">System.String</command:parameterValue>

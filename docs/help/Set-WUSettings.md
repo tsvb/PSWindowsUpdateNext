@@ -1029,7 +1029,7 @@ HelpMessage: ''
 
 ### -ScheduledInstallDay
 
-Sets the day on which Automatic Updates installs updates. Valid values are 'Every Day', 'Every Sunday', 'Every Monday', 'Every Tuesday', 'Every Wednesday', 'Every Thursday', 'Every Friday', and 'EverySaturday'. It is used only when NotificationLevel is 'Scheduled installation'.
+Sets the day on which Automatic Updates installs updates. Valid values are 'Every Day', 'Every Sunday', 'Every Monday', 'Every Tuesday', 'Every Wednesday', 'Every Thursday', 'Every Friday', and 'Every Saturday'. The spelling 'EverySaturday' from earlier releases is still accepted. Values are not case-sensitive. It is used only when NotificationLevel is 'Scheduled installation'.
 
 Starting with Windows 8 and Windows Server 2012, the Windows Update Agent no longer reports this value reliably. The operation appears to succeed but has no effect.
 
@@ -1054,6 +1054,7 @@ AcceptedValues:
 - Every Wednesday
 - Every Thursday
 - Every Friday
+- Every Saturday
 - EverySaturday
 HelpMessage: ''
 ```

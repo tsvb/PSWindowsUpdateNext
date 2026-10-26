@@ -198,10 +198,10 @@ public class SetWUSettings : PSCmdlet
 	public SwitchParameter RebootWarningTimeoutEnabled { get; set; }
 
 	/// <summary>
-	/// <para type="description">Scheduled day of install: "Every day", "Every Sunday", "Every Monday", "Every Tuesday", "Every Wednesday", "Every Thursday", ""Every Friday", "EverySaturday". Only valid if NotificationLevel (AUOptions) = "Scheduled installation"</para>
+	/// <para type="description">Scheduled day of install: "Every day", "Every Sunday", "Every Monday", "Every Tuesday", "Every Wednesday", "Every Thursday", "Every Friday", "Every Saturday". Only valid if NotificationLevel (AUOptions) = "Scheduled installation"</para>
 	/// <para type="description">Starting with Windows 8 and Windows Server 2012, ScheduledInstallationDay are not supported and will return unreliable values.If you try to modify these properties, the operation will appear to succeed but will have no effect.</para>
 	/// </summary>
-	[ValidateSet(new string[] { "Every Day", "Every Sunday", "Every Monday", "Every Tuesday", "Every Wednesday", "Every Thursday", "Every Friday", "EverySaturday" })]
+	[ValidateSet(new string[] { "Every Day", "Every Sunday", "Every Monday", "Every Tuesday", "Every Wednesday", "Every Thursday", "Every Friday", "Every Saturday", "EverySaturday" })]
 	[Parameter]
 	public string ScheduledInstallDay { get; set; }
 
@@ -598,21 +598,22 @@ public class SetWUSettings : PSCmdlet
 	private void CoreProcessing()
 	{
 		string invocationName = MyInvocation.InvocationName;
-		Hashtable hashtable = new Hashtable();
+		// ValidateSet matches case-insensitively, so the lookups that translate its values must too.
+		Hashtable hashtable = new Hashtable(StringComparer.OrdinalIgnoreCase);
 		hashtable.Add("DefaultOS", 0);
 		hashtable.Add("DisableAllExcludingRestart", 1);
 		hashtable.Add("DisableAllIncludingRestart", 2);
-		Hashtable hashtable2 = new Hashtable();
+		Hashtable hashtable2 = new Hashtable(StringComparer.OrdinalIgnoreCase);
 		hashtable2.Add("Auto", 1);
 		hashtable2.Add("User Action", 2);
-		Hashtable hashtable3 = new Hashtable();
+		Hashtable hashtable3 = new Hashtable(StringComparer.OrdinalIgnoreCase);
 		hashtable3.Add("Not configured", 0);
 		hashtable3.Add("Disabled", 1);
 		hashtable3.Add("Notify before download", 2);
 		hashtable3.Add("Notify before installation", 3);
 		hashtable3.Add("Scheduled installation", 4);
 		hashtable3.Add("Users configure", 5);
-		Hashtable hashtable4 = new Hashtable();
+		Hashtable hashtable4 = new Hashtable(StringComparer.OrdinalIgnoreCase);
 		hashtable4.Add("Every Day", 0);
 		hashtable4.Add("Every Sunday", 1);
 		hashtable4.Add("Every Monday", 2);
@@ -621,6 +622,8 @@ public class SetWUSettings : PSCmdlet
 		hashtable4.Add("Every Thursday", 5);
 		hashtable4.Add("Every Friday", 6);
 		hashtable4.Add("Every Saturday", 7);
+		// Earlier versions listed "EverySaturday" (no space) in the ValidateSet; keep accepting it.
+		hashtable4.Add("EverySaturday", 7);
 		string[] computerName = ComputerName;
 		foreach (string text in computerName)
 		{
@@ -764,7 +767,7 @@ public class SetWUSettings : PSCmdlet
 				string text2 = string.Empty;
 				try
 				{
-					text2 = (string)registryKey2.GetValue("\r\n");
+					text2 = (string)registryKey2.GetValue("TargetGroup");
 				}
 				catch (Exception readError)
 				{

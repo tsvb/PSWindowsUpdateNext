@@ -33,7 +33,10 @@ Prepares the local computer to be managed remotely by PSWindowsUpdateNext. The c
 - creates or enables the Windows Firewall rule group PSWindowsUpdateNext, with an inbound rule that allows RPC dynamic ports for dllhost.exe (needed for DCOM calls to the Windows Update Agent);
 - enables the Remote Scheduled Tasks Management and Windows Management Instrumentation (WMI) firewall rule groups;
 - sets the Remote Registry service start mode to Automatic if it is Disabled, and starts it if it is stopped;
-- if the WinRM client TrustedHosts list does not already contain *, starts the WinRM service, sets the LocalAccountTokenFilterPolicy registry value to 1 and the ForceGuest value to 0, and adds * to TrustedHosts.
+- turns on PowerShell remoting with Enable-PSRemoting -Force and starts the WinRM service;
+- only with -LocalAccountTokenFilterPolicy, sets the LocalAccountTokenFilterPolicy registry value to 1 and the ForceGuest value to 0.
+
+The cmdlet does not change the WinRM client TrustedHosts list. Earlier releases added * to it without being asked.
 
 These changes lower the security of the computer. Use the cmdlet only in a managed environment, and review the notes before you run it.
 
@@ -181,7 +184,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## NOTES
 
-This cmdlet requires an elevated session and stops with an error when the session is not elevated. -WhatIf and -Confirm are accepted but the cmdlet does not check them, so the changes are always made. LocalAccountTokenFilterPolicy=1 disables the UAC remote restrictions for local administrator accounts, and a TrustedHosts value of * lets this computer send credentials to any host over WinRM. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always acts on the local computer. Update-WUModule -Local runs this cmdlet on the remote computer after copying the module.
+This cmdlet requires an elevated session and stops with an error when the session is not elevated. -WhatIf and -Confirm are accepted but the cmdlet does not check them, so the changes are always made. LocalAccountTokenFilterPolicy=1 disables the UAC remote restrictions for local administrator accounts, and ForceGuest=0 lets local accounts authenticate as themselves instead of as Guest. Both are set only when you use -LocalAccountTokenFilterPolicy. Errors from Enable-PSRemoting are reported. The ComputerName and Credential parameters are not available on this cmdlet in the current release, so it always acts on the local computer. Update-WUModule -Local runs this cmdlet on the remote computer after copying the module.
 
 ## RELATED LINKS
 
