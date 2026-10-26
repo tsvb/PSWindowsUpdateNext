@@ -46,6 +46,7 @@ First release published to GitHub Releases and the PowerShell Gallery.
 - `Reset-WUComponents` passed `%SystemRoot%\<name>.dll` to regsvr32, but the DLLs live in System32, so step 6 registered nothing. It now uses the System32 path and skips DLLs that current Windows versions no longer ship.
 - The desktop console passed install days without spaces (`EveryMonday`), which `Set-WUSettings` rejects, so only Saturday could be set. It now passes the accepted values.
 - Removed the three compiler warnings (each reported once per target): an ignored attribute in `INetFwPolicy2`, an unused variable in `ConvertSize`, and a `catch` that only rethrew in `WUCimSession.InstallUpdates`.
+- The release workflow's messages for a missing `SIGNING_CERT_PFX_BASE64` or `PSGALLERY_API_KEY` named a repository secret. They now name the `signing` and `release` environments, where `docs/RELEASING.md` says the secrets belong.
 
 ### Removed
 - Help pages for `Get-WindowsUpdate_v2` and `Get-WUTest`, which the module does not export.
