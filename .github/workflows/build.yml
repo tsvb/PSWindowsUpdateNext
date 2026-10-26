@@ -7,15 +7,36 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: jobs only read the repository unless they say otherwise.
+# Only the `release` job below is granted contents: write.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
+      # Fail fast, before building and testing, if a release tag disagrees with the repository.
+      - name: Check release version (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: ./tools/Assert-ReleaseVersion.ps1 -Tag $env:TAG_NAME
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      # docs/help is the source of truth for Get-Help. Fail if the committed MAML is not what the
+      # markdown produces. PlatyPS is pinned because another version can format the XML differently.
+      - name: Check help is in sync with docs/help
+        shell: pwsh
+        run: |
+          Install-PSResource -Name Microsoft.PowerShell.PlatyPS -Version '1.0.3' -Scope CurrentUser -TrustRepository
+          ./tools/Build-Help.ps1 -Check
 
       - name: Build module
         shell: pwsh
@@ -49,20 +70,186 @@ jobs:
           name: PSWindowsUpdateNext
           path: out/PSWindowsUpdateNext
 
-  release:
+  # Tags only. Signs the assembled module once; the GitHub release and the Gallery
+  # publish both consume the signed output of this job.
+  sign:
+    name: Sign module
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
+    # The signing secrets live in this environment, which only allows v* tags. Repository secrets
+    # would be readable by a workflow pushed on any branch.
+    environment: signing
+    outputs:
+      signed: ${{ steps.config.outputs.signed }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Check signing configuration
+        id: config
+        shell: pwsh
+        env:
+          # The comparison yields 'true'/'false'; the secret value itself never reaches this step.
+          HAS_CERT: ${{ secrets.SIGNING_CERT_PFX_BASE64 != '' }}
+          ALLOW_UNSIGNED: ${{ vars.ALLOW_UNSIGNED_RELEASE }}
+        run: |
+          if ($env:HAS_CERT -eq 'true') {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'signed=true'
+          }
+          elseif ($env:ALLOW_UNSIGNED -eq 'true') {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'signed=false'
+            Write-Host '::warning title=UNSIGNED RELEASE::SIGNING_CERT_PFX_BASE64 is not set and ALLOW_UNSIGNED_RELEASE is true. This release will NOT be Authenticode-signed.'
+          }
+          else {
+            Write-Host '::error title=Release is not signed::The repository secret SIGNING_CERT_PFX_BASE64 is not set, so this tag cannot be released signed. Add the signing secrets (see docs/RELEASING.md), or set the repository variable ALLOW_UNSIGNED_RELEASE to true to ship an unsigned release deliberately.'
+            exit 1
+          }
+
       - uses: actions/download-artifact@v4
         with:
           name: PSWindowsUpdateNext
           path: PSWindowsUpdateNext
 
-      - name: Zip module
+      - name: Sign module
+        if: steps.config.outputs.signed == 'true'
         shell: pwsh
-        run: Compress-Archive -Path PSWindowsUpdateNext -DestinationPath "PSWindowsUpdateNext-${{ github.ref_name }}.zip"
+        env:
+          SIGNING_CERT_PFX_BASE64: ${{ secrets.SIGNING_CERT_PFX_BASE64 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: ./tools/Sign-Module.ps1 -ModulePath PSWindowsUpdateNext
 
-      - uses: softprops/action-gh-release@v2
+      # Authenticode hashes the decoded text of scripts, so check again under the other host.
+      - name: Verify signatures in Windows PowerShell 5.1
+        if: steps.config.outputs.signed == 'true'
+        shell: powershell
+        run: ./tools/Sign-Module.ps1 -ModulePath PSWindowsUpdateNext -VerifyOnly
+
+      - name: Install Pester
+        if: steps.config.outputs.signed == 'true'
+        shell: pwsh
+        run: Install-Module Pester -MinimumVersion 5.5 -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Test signed module in PowerShell 7
+        if: steps.config.outputs.signed == 'true'
+        shell: pwsh
+        run: |
+          $env:PSWU_MODULE_PATH = (Resolve-Path ./PSWindowsUpdateNext).ProviderPath
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './tests'
+          $cfg.Run.Exit = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $cfg
+
+      - name: Test signed module in Windows PowerShell 5.1
+        if: steps.config.outputs.signed == 'true'
+        shell: powershell
+        run: |
+          $env:PSWU_MODULE_PATH = (Resolve-Path ./PSWindowsUpdateNext).ProviderPath
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './tests'
+          $cfg.Run.Exit = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $cfg
+
+      - name: Upload release module
+        uses: actions/upload-artifact@v4
         with:
-          files: PSWindowsUpdateNext-*.zip
+          name: PSWindowsUpdateNext-release
+          path: PSWindowsUpdateNext
+          if-no-files-found: error
+
+  # Creates the GitHub release. The only job with write access to the repository.
+  release:
+    name: GitHub release
+    needs: sign
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: PSWindowsUpdateNext-release
+          path: PSWindowsUpdateNext
+
+      - name: Verify signatures
+        if: needs.sign.outputs.signed == 'true'
+        shell: pwsh
+        run: ./tools/Sign-Module.ps1 -ModulePath PSWindowsUpdateNext -VerifyOnly
+
+      - name: Package, checksum and release notes
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          SIGNED: ${{ needs.sign.outputs.signed }}
+        run: |
+          $zip = "PSWindowsUpdateNext-$($env:TAG_NAME).zip"
+          Compress-Archive -Path PSWindowsUpdateNext -DestinationPath $zip
+
+          $hash = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $noBom = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText((Join-Path $PWD "$zip.sha256"), "$hash  $zip`n", $noBom)
+          Write-Host "SHA-256 $hash  $zip"
+
+          $version = $env:TAG_NAME.TrimStart('v')
+          $notes = ./tools/Get-ReleaseNotes.ps1 -Version $version
+          if ($env:SIGNED -ne 'true') {
+            $notes = "> **Warning:** the files in this release are not Authenticode-signed.`n`n$notes"
+          }
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'release-notes.md'), $notes + "`n", $noBom)
+
+      # Third-party action in the job that can write to the repository: pinned to a commit (v2.6.2).
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: |
+            PSWindowsUpdateNext-*.zip
+            PSWindowsUpdateNext-*.zip.sha256
+          fail_on_unmatched_files: true
+
+  # Publishes the same signed files to the PowerShell Gallery. Runs after the GitHub release
+  # succeeds (a release can be deleted; a Gallery version cannot), and waits for approval when
+  # the `release` environment has required reviewers.
+  publish:
+    name: PowerShell Gallery
+    needs: [sign, release]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Gallery configuration
+        id: config
+        shell: pwsh
+        env:
+          HAS_KEY: ${{ secrets.PSGALLERY_API_KEY != '' }}
+        run: |
+          if ($env:HAS_KEY -eq 'true') {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'publish=true'
+          }
+          else {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'publish=false'
+            Write-Host '::warning title=PowerShell Gallery publish skipped::The PSGALLERY_API_KEY secret is not set (as a repository or `release` environment secret). The GitHub release was still created.'
+          }
+
+      - uses: actions/download-artifact@v4
+        if: steps.config.outputs.publish == 'true'
+        with:
+          name: PSWindowsUpdateNext-release
+          path: PSWindowsUpdateNext
+
+      - name: Verify signatures
+        if: steps.config.outputs.publish == 'true' && needs.sign.outputs.signed == 'true'
+        shell: pwsh
+        run: ./tools/Sign-Module.ps1 -ModulePath PSWindowsUpdateNext -VerifyOnly
+
+      - name: Publish to the PowerShell Gallery
+        if: steps.config.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: ./tools/Publish-ToGallery.ps1 -ModulePath PSWindowsUpdateNext

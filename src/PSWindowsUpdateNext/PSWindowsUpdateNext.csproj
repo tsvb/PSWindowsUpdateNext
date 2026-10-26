@@ -10,9 +10,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>3.1.0</Version>
-    <AssemblyVersion>3.1.0.0</AssemblyVersion>
-    <FileVersion>3.1.0.0</FileVersion>
+    <Version>3.2.0</Version>
+    <AssemblyVersion>3.2.0.0</AssemblyVersion>
+    <FileVersion>3.2.0.0</FileVersion>
     <Product>PSWindowsUpdateNext</Product>
     <Authors>Michal Gajda; tsvb</Authors>
     <Copyright>Copyright (c) 2011-2023 Michal Gajda. Modifications copyright (c) 2026 tsvb. MIT License.</Copyright>

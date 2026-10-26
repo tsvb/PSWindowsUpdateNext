@@ -838,7 +838,7 @@ public class SetWUSettings : PSCmdlet
 			}
 			if (MyInvocation.BoundParameters.ContainsKey("NoAutoUpdate"))
 			{
-				bool flag9 = TargetGroupEnabled.ToBool();
+				bool flag9 = NoAutoUpdate.ToBool();
 				bool flag10 = false;
 				try
 				{
@@ -852,8 +852,8 @@ public class SetWUSettings : PSCmdlet
 				{
 					try
 					{
-						WriteVerbose(text + " NoAutoUpdateNoAutoUpdate: " + flag10 + " => " + flag9);
-						registryKey3.SetValue("TargetGroupEnabled", Convert.ToInt32(flag9), RegistryValueKind.DWord);
+						WriteVerbose(text + " NoAutoUpdate: " + flag10 + " => " + flag9);
+						registryKey3.SetValue("NoAutoUpdate", Convert.ToInt32(flag9), RegistryValueKind.DWord);
 					}
 					catch
 					{
@@ -2098,8 +2098,8 @@ public class SetWUSettings : PSCmdlet
 				{
 					try
 					{
-						WriteVerbose(text + " SetDisablePauseUXAccess: " + flag52 + " => " + flag51);
-						registryKey2.SetValue("SetDisablePauseUXAccess", Convert.ToInt32(flag51), RegistryValueKind.DWord);
+						WriteVerbose(text + " SetDisableUXWUAccess: " + flag52 + " => " + flag51);
+						registryKey2.SetValue("SetDisableUXWUAccess", Convert.ToInt32(flag51), RegistryValueKind.DWord);
 					}
 					catch
 					{

@@ -6,14 +6,54 @@ function Show-PSWUConsole {
     .SYNOPSIS
         Opens the PSWindowsUpdateNext desktop console, a WPF front end for the module's cmdlets.
     .DESCRIPTION
-        A dark, keyboard-friendly window for scanning, installing, hiding, and scheduling Windows
-        updates, browsing history, managing update services, editing client policy, and downloading
-        verified packages from the Microsoft Update Catalog. Every operation runs in a background
-        runspace and streams verbose output to the Log page.
+        Opens a dark, keyboard-friendly window over the same cmdlets that the module exports. It has eight
+        pages: Dashboard (reboot state, last search and install, agent version, install statistics, and the
+        client policy), Updates (scan, filter, download, install, hide, and unhide), History, Services
+        (register Microsoft Update or remove a service), Settings (view and edit the Windows Update policy),
+        Catalog (search the Microsoft Update Catalog and download packages with SHA-1 digest and Authenticode
+        verification), Jobs (list, create, and clear the module's Task Scheduler jobs), and Log.
+
+        Every operation runs in a background runspace, so the window stays responsive, and verbose, warning,
+        and error output goes to the Log page. Destructive actions ask for confirmation first.
+
+        The function blocks until the window is closed. It runs on Windows only, in Windows PowerShell 5.1 or
+        PowerShell 7, and needs a single-threaded apartment (the default for the PowerShell console).
+
+        Most actions need an elevated session: scanning, downloading, installing, hiding and unhiding updates,
+        restarting, registering or removing update services, applying settings, and creating or clearing jobs.
+        Without elevation the sidebar offers "Restart as administrator", and read-only pages such as History
+        and the Catalog download still work.
     .PARAMETER PassThru
-        Return the window object without showing it. Call Show() or ShowDialog() yourself.
+        Return the window object without showing it. Call Show() or ShowDialog() yourself. Without this
+        switch the function shows the window modally and returns nothing.
     .EXAMPLE
         Show-PSWUConsole
+
+        Opens the console and waits until you close it.
+    .EXAMPLE
+        Start-Process pwsh -Verb RunAs -ArgumentList '-NoProfile', '-Command', 'Import-Module PSWindowsUpdateNext; Show-PSWUConsole'
+
+        Opens the console in a new elevated PowerShell 7 session, so that every action is available.
+    .EXAMPLE
+        $window = Show-PSWUConsole -PassThru
+        $window.Topmost = $true
+        $window.ShowDialog() | Out-Null
+
+        Creates the window without showing it, keeps it above other windows, and then shows it.
+    .INPUTS
+        None. This function does not accept pipeline input.
+    .OUTPUTS
+        None by default.
+
+        System.Windows.Window when you use -PassThru.
+    .NOTES
+        Requires Windows. Importing the module does not load WPF; the assemblies are loaded when the function
+        runs. The console works on the local computer and calls the module's own cmdlets, so it needs the
+        same elevation as they do.
+    .LINK
+        https://github.com/tsvb/PSWindowsUpdateNext/blob/main/docs/help/Show-PSWUConsole.md
+    .LINK
+        Get-WindowsUpdate
     #>
     [CmdletBinding()]
     param(
