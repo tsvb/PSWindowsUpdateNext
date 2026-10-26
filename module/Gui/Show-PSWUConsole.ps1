@@ -301,10 +301,19 @@ $script:PSWUConsoleBody = {
         # No -ExecutionPolicy override: the elevated host runs under the policy the administrator configured,
         # and the signed module loads under RemoteSigned or AllSigned. -EncodedCommand keeps a manifest path
         # that contains a quote or other special character from breaking the command line.
-        $cmd = "Import-Module -Name '$($manifest.Replace("'", "''"))'; Show-PSWUConsole"
+        # EscapeSingleQuotedStringContent also doubles the typographic quotes PowerShell treats as '.
+        $quoted = [System.Management.Automation.Language.CodeGeneration]::EscapeSingleQuotedStringContent($manifest)
+        $cmd = "Import-Module -Name '$quoted'; Show-PSWUConsole"
         $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($cmd))
+        $hostArgs = @('-NoProfile')
+        # A policy the user set for this session only (for example powershell -ExecutionPolicy Bypass)
+        # is not inherited by the elevated process, so pass it on explicitly. Machine and user policies
+        # apply on their own, and Group Policy still overrides the parameter.
+        $sessionPolicy = Get-ExecutionPolicy -Scope Process
+        if ($sessionPolicy -ne 'Undefined') { $hostArgs += @('-ExecutionPolicy', "$sessionPolicy") }
+        $hostArgs += @('-EncodedCommand', $encoded)
         try {
-            Start-Process -FilePath $exe -Verb RunAs -ArgumentList @('-NoProfile', '-EncodedCommand', $encoded) | Out-Null
+            Start-Process -FilePath $exe -Verb RunAs -ArgumentList $hostArgs | Out-Null
             $window.Close()
         } catch {
             Show-Message -Text "Could not start an elevated session: $($_.Exception.Message)" -Icon 'Error'

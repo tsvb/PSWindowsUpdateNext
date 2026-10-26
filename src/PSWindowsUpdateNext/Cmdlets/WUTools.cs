@@ -26,6 +26,28 @@ namespace PSWindowsUpdateNext;
 public class WUTools : PSCmdlet
 {
 	/// <summary>
+	/// WUTools is a cmdlet that is constructed but never invoked. Without a command runtime,
+	/// Cmdlet.WriteWarning and WriteDebug throw NotImplementedException, so these helpers write only
+	/// when a calling cmdlet has lent its runtime (WUToolsObj.CommandRuntime = CommandRuntime) and are
+	/// silent otherwise.
+	/// </summary>
+	private void Warn(string message)
+	{
+		if (CommandRuntime != null)
+		{
+			WriteWarning(message);
+		}
+	}
+
+	private void TraceDebug(string message)
+	{
+		if (CommandRuntime != null)
+		{
+			WriteDebug(message);
+		}
+	}
+
+	/// <summary>
 	/// Possible http web request methods
 	/// </summary>
 	public enum HttpWebRequestMethod
@@ -263,7 +285,7 @@ public class WUTools : PSCmdlet
 			}
 			catch (Exception serviceError)
 			{
-				WriteWarning(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
+				Warn(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
 				return;
 			}
 		}
@@ -279,7 +301,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception serviceError)
 		{
-			WriteWarning(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
+			Warn(Computer + ": Failed to restart the Windows Update service: " + serviceError.Message);
 		}
 	}
 
@@ -305,7 +327,7 @@ public class WUTools : PSCmdlet
 			}
 			catch (Exception serviceError)
 			{
-				WriteWarning(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
+				Warn(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
 				return;
 			}
 		}
@@ -321,7 +343,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception serviceError)
 		{
-			WriteWarning(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
+			Warn(Computer + ": Failed to stop service '" + ServiceName + "': " + serviceError.Message);
 		}
 	}
 
@@ -347,7 +369,7 @@ public class WUTools : PSCmdlet
 			}
 			catch (Exception serviceError)
 			{
-				WriteWarning(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
+				Warn(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
 				return;
 			}
 		}
@@ -363,7 +385,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception serviceError)
 		{
-			WriteWarning(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
+			Warn(Computer + ": Failed to start service '" + ServiceName + "': " + serviceError.Message);
 		}
 	}
 
@@ -386,7 +408,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception processError)
 		{
-			WriteWarning("Failed to start '" + FileName + " " + Arguments + "': " + processError.Message);
+			Warn("Failed to start '" + FileName + " " + Arguments + "': " + processError.Message);
 		}
 	}
 
@@ -402,12 +424,12 @@ public class WUTools : PSCmdlet
 			Ping ping = new Ping();
 			PingReply pingReply = ping.Send(Computer);
 			flag = true;
-			WriteDebug(Computer + ": Ping connection Succeeded");
+			TraceDebug(Computer + ": Ping connection Succeeded");
 		}
 		catch
 		{
 			flag = false;
-			WriteDebug(Computer + ": Ping connection Failed");
+			TraceDebug(Computer + ": Ping connection Failed");
 		}
 		return flag;
 	}
@@ -1202,7 +1224,7 @@ public class WUTools : PSCmdlet
 			}
 			catch (Exception ex)
 			{
-				WriteWarning("Could not read the saved PSWUSettings from '" + path + "', ignoring it: " + ex.Message);
+				Warn("Could not read the saved PSWUSettings from '" + path + "', ignoring it: " + ex.Message);
 			}
 		}
 		return new Hashtable();
@@ -1223,7 +1245,7 @@ public class WUTools : PSCmdlet
 		}
 		catch (Exception ex)
 		{
-			WriteWarning("Could not save the PSWUSettings to '" + path + "': " + ex.Message);
+			Warn("Could not save the PSWUSettings to '" + path + "': " + ex.Message);
 		}
 	}
 

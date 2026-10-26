@@ -4,7 +4,8 @@
 
 ### Security
 - `Show-PSWUConsole` no longer compiles `Gui\Models.cs` with `Add-Type` or loads loose XAML files at run time. The row types are now part of `PSWindowsUpdateNext.dll` and the two XAML files are embedded in it, so under an `AllSigned` policy everything the console executes is covered by the signature. The console no longer calls `Add-Type` on source code, so it needs no C# compiler. `Gui\MainWindow.xaml`, `Gui\Theme.xaml`, and `Gui\Models.cs` are removed from the module folder.
-- The console's "Restart as administrator" button no longer starts the elevated host with `-ExecutionPolicy Bypass`, so it respects the execution policy the administrator set. It now passes the command with `-EncodedCommand`, which also fixes a module path that contains a single quote.
+- The console's "Restart as administrator" button no longer starts the elevated host with `-ExecutionPolicy Bypass`. It respects the configured execution policy, and passes on a policy only when the user set one for the current session. The command goes through `-EncodedCommand` with PowerShell's own quoting, so a module path that contains an apostrophe or a typographic quote no longer breaks it.
+- `Get-WUOfflineMSU` hands BITS the canonical form of the download URL it validated, instead of the raw string from the Catalog page, so the host BITS connects to cannot differ from the host the allowlist approved.
 
 ### Added
 - `SECURITY.md` explains how to report a vulnerability privately. `CONTRIBUTING.md` explains how to build, test, update help and open a pull request.

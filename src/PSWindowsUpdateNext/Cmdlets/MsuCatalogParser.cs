@@ -136,7 +136,9 @@ internal static class MsuCatalogParser
 			}
 			fileName = Path.GetFileName(fileName);
 			entry.TryGetValue("digest", out string digest);
-			result.Add(new CatalogFile { Url = url, FileName = fileName, Digest = digest });
+			// Hand on the canonical form of the URI that was validated, never the raw string, so the host
+			// BITS connects to cannot differ from the host the allowlist approved.
+			result.Add(new CatalogFile { Url = uri.AbsoluteUri, FileName = fileName, Digest = digest });
 		}
 		return result;
 	}

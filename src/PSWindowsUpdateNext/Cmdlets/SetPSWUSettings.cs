@@ -166,8 +166,8 @@ public class SetPSWUSettings : PSCmdlet
 			WriteWarning("To perform some operations you must run an elevated Windows PowerShell console.");
 		}
 		WUToolsObj = new WUTools();
-		// WUTools is a cmdlet that is never invoked, so its WriteWarning and WriteDebug do nothing
-		// unless they borrow this cmdlet's runtime.
+		// WUTools is a cmdlet that is never invoked. Lending it this cmdlet's runtime makes its
+		// warnings and debug messages appear in this cmdlet's streams; without it they are dropped.
 		WUToolsObj.CommandRuntime = CommandRuntime;
 		OutputObj = new Collection<PSObject>();
 		if ((bool)SendReport)
