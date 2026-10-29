@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+- Every cmdlet that logs the local module version (`Add-WUServiceManager`, `Get-WindowsUpdate`, `Get-WUApiVersion`, `Invoke-WUJob`, `Set-WUSettings`, and others) crashed with a null reference when the module was imported from a folder outside `PSModulePath`: the lookup ran `Get-Module -ListAvailable` in a fresh runspace and found nothing. The local version now comes from the loaded assembly, which also saves a runspace per call, and a missing remote module is reported instead of dereferenced. `Get-WUApiVersion` now fills `PSWindowsUpdateNext` and `PSWUModuleDll` in that situation too.
+
 ### Added
 - Console: a Cancel button in the status bar (and Esc) stops the running operation and clears queued ones. The Updates columns sort on header click, with a direction marker. Keyboard shortcuts: F5 refreshes the current page or scans, Ctrl+F focuses the filter, Ctrl+A toggles every listed update, Ctrl+1 through Ctrl+8 switch pages.
+- Write-path integration tests in `tests/Integration`: hide, unhide, download, and optionally install an update; remove and re-register Microsoft Update; write and change a policy value; run and clear a SYSTEM job; cancel a scan. They run only with `PSWU_WRITE_PATHS=1` in an elevated session, so the regular suite skips them. `.github/workflows/integration.yml` runs them on a hosted runner weekly and on demand, with an input to include the install.
 
 ## 3.2.0 (2026-10-26)
 
