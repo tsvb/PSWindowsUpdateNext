@@ -57,6 +57,10 @@ Import-Module PSWindowsUpdateNext
 Show-PSWUConsole
 ```
 
+Keyboard: F5 refreshes the current page or scans, Esc cancels the running operation, Ctrl+F jumps to the
+filter, Ctrl+A toggles every listed update, Ctrl+1 through Ctrl+8 switch pages. Click a column header on
+the Updates page to sort.
+
 ![Services](docs/console-services.png)
 
 ## Install

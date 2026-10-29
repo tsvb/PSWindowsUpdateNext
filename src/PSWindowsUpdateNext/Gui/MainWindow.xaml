@@ -298,11 +298,11 @@
                                             <ColumnDefinition Width="100"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="ChkSelectAll" Style="{StaticResource Check}"/>
-                                        <TextBlock Grid.Column="1" Style="{StaticResource T.Label}" Text="KB"/>
-                                        <TextBlock Grid.Column="2" Style="{StaticResource T.Label}" Text="Update"/>
-                                        <TextBlock Grid.Column="3" Style="{StaticResource T.Label}" Text="Severity"/>
-                                        <TextBlock Grid.Column="4" Style="{StaticResource T.Label}" Text="Size"/>
-                                        <TextBlock Grid.Column="5" Style="{StaticResource T.Label}" Text="State"/>
+                                        <TextBlock x:Name="HdrKB" Grid.Column="1" Style="{StaticResource T.Label}" Text="KB" Cursor="Hand" Tag="KB" ToolTip="Sort by KB"/>
+                                        <TextBlock x:Name="HdrTitle" Grid.Column="2" Style="{StaticResource T.Label}" Text="Update" Cursor="Hand" Tag="Title" ToolTip="Sort by title"/>
+                                        <TextBlock x:Name="HdrSeverity" Grid.Column="3" Style="{StaticResource T.Label}" Text="Severity" Cursor="Hand" Tag="Severity" ToolTip="Sort by severity"/>
+                                        <TextBlock x:Name="HdrSize" Grid.Column="4" Style="{StaticResource T.Label}" Text="Size" Cursor="Hand" Tag="SizeBytes" ToolTip="Sort by size"/>
+                                        <TextBlock x:Name="HdrState" Grid.Column="5" Style="{StaticResource T.Label}" Text="State" Cursor="Hand" Tag="StateText" ToolTip="Sort by state"/>
                                     </Grid>
                                 </Border>
                                 <ScrollViewer Grid.Row="1" Style="{StaticResource ListHost}">
@@ -806,6 +806,7 @@
                     <Ellipse x:Name="DotStatus" Style="{StaticResource Dot}" Fill="{StaticResource B.Success}" Margin="0,0,8,0"/>
                     <TextBlock x:Name="TxtStatus" Style="{StaticResource T.Muted}" Text="Ready"/>
                     <TextBlock x:Name="TxtProgress" Style="{StaticResource T.Muted}" Text="" Margin="14,0,0,0"/>
+                    <Button x:Name="BtnCancel" Style="{StaticResource BtnGhost}" Content="Cancel (Esc)" Padding="8,0" Margin="10,0,0,0" FontSize="12" Visibility="Collapsed" ToolTip="Stop the running operation"/>
                 </StackPanel>
                 <TextBlock x:Name="TxtEdition" Style="{StaticResource T.Muted}" Text="" HorizontalAlignment="Right" VerticalAlignment="Center"/>
             </Grid>

@@ -166,7 +166,20 @@ $script:PSWUConsoleBody = {
                        'BtnCatalogSearch', 'BtnCatalogDownload', 'BtnJobsRefresh', 'BtnJobsClear', 'BtnJobCreate') {
             $ui[$n].IsEnabled = -not $Busy
         }
+        $ui.BtnCancel.Visibility = if ($Busy) { 'Visible' } else { 'Collapsed' }
+        $ui.BtnCancel.IsEnabled = $true
         if ($Busy) { Write-Status -Text $TaskName -Color 'B.Accent' } else { Write-Status -Text 'Ready'; $ui.TxtProgress.Text = '' }
+    }
+
+    function Invoke-TaskCancel {
+        $t = $state.Task
+        if (-not $t) { return }
+        $ui.BtnCancel.IsEnabled = $false
+        Write-Status -Text "Stopping: $($t.Job.Name)" -Color 'B.Warning'
+        Add-Log 'warning' "Cancel requested for: $($t.Job.Name)"
+        $state.Queue.Clear()
+        # BeginStop returns at once; the timer sees the handle complete and finishes the task as failed.
+        try { [void]$t.PS.BeginStop($null, $null) } catch { Add-Log 'error' "Stop failed: $($_.Exception.Message)" }
     }
 
     function Show-Message {
@@ -472,13 +485,36 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         }
     }
 
+    $severityRank = @{ critical = 0; important = 1; moderate = 2; low = 3 }
+    $sortHeaders = 'HdrKB', 'HdrTitle', 'HdrSeverity', 'HdrSize', 'HdrState'
     function Show-UpdateList {
         $text = $ui.TxtUpdateFilter.Text
         $rows = $state.AllUpdates
         if ($ui.ChipRebootOnly.IsChecked) { $rows = @($rows | Where-Object RebootRequired) }
         if ($text) { $rows = @($rows | Where-Object { $_.Title -like "*$text*" -or $_.KB -like "*$text*" }) }
+        if ($state.SortKey) {
+            $key = $state.SortKey
+            $selector = switch ($key) {
+                'Severity' { { $r = $severityRank[("$($_.Severity)").ToLowerInvariant()]; if ($null -eq $r) { 9 } else { $r } } }
+                'SizeBytes' { { [decimal]$_.SizeBytes } }
+                default { [scriptblock]::Create("`$_.$key") }
+            }
+            $rows = @($rows | Sort-Object -Property @{ Expression = $selector; Descending = [bool]$state.SortDesc }, Title)
+        }
         $ui.ListUpdates.ItemsSource = @($rows)
         $ui.TxtUpdatesEmpty.Visibility = if ($rows.Count) { 'Collapsed' } else { 'Visible' }
+        foreach ($h in $sortHeaders) {
+            $hdr = $ui[$h]
+            $base = $hdr.Text -replace ' [▲▼]$', ''
+            $hdr.Text = if ($hdr.Tag -eq $state.SortKey) { $base + $(if ($state.SortDesc) { ' ▼' } else { ' ▲' }) } else { $base }
+        }
+    }
+    foreach ($h in $sortHeaders) {
+        $ui[$h].Add_MouseLeftButtonUp({
+            $hdr = $args[0]  # (sender, MouseButtonEventArgs)
+            if ($state.SortKey -eq $hdr.Tag) { $state.SortDesc = -not $state.SortDesc } else { $state.SortKey = $hdr.Tag; $state.SortDesc = ($hdr.Tag -eq 'SizeBytes') }
+            Show-UpdateList
+        })
     }
 
     function Get-SelectedUpdate { @($state.AllUpdates | Where-Object Selected) }
@@ -760,6 +796,58 @@ Get-WUOfflineMSU @p | ForEach-Object { [pscustomobject]@{ Identity = "$($_.Ident
         $runspace.Dispose()
     })
     $window.Add_ContentRendered({ Show-DashboardPage })
+    $ui.BtnCancel.Add_Click({ Invoke-TaskCancel })
+
+    # Keyboard shortcuts: F5 refresh or scan, Esc cancel, Ctrl+F filter, Ctrl+A select all, Ctrl+1..8 pages.
+    $pageOrder = @('NavDashboard', 'NavUpdates', 'NavHistory', 'NavServices', 'NavSettings', 'NavCatalog', 'NavJobs', 'NavLog')
+    $window.Add_PreviewKeyDown({
+        $e = $args[1]  # (sender, KeyEventArgs)
+        $ctrl = ($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Control) -ne 0
+        $page = ($pageOrder | Where-Object { $ui[$pages[$_]].Visibility -eq 'Visible' } | Select-Object -First 1)
+        $inTextBox = $e.OriginalSource -is [System.Windows.Controls.TextBox]
+        switch ($e.Key) {
+            'F5' {
+                switch ($page) {
+                    'NavUpdates'  { Invoke-UpdateScan }
+                    'NavHistory'  { Show-HistoryPage }
+                    'NavServices' { Show-ServicePage }
+                    'NavSettings' { Show-SettingPage }
+                    'NavJobs'     { Show-JobPage }
+                    default       { Show-DashboardPage }
+                }
+                $e.Handled = $true
+            }
+            'Escape' { if ($state.Task) { Invoke-TaskCancel; $e.Handled = $true } }
+            'F' {
+                if ($ctrl) {
+                    $box = switch ($page) {
+                        'NavHistory' { $ui.TxtHistoryFilter }
+                        'NavCatalog' { $ui.TxtCatalogKB }
+                        'NavUpdates' { $ui.TxtUpdateFilter }
+                        default      { $ui.NavUpdates.IsChecked = $true; $ui.TxtUpdateFilter }
+                    }
+                    $box.Focus() | Out-Null
+                    $box.SelectAll()
+                    $e.Handled = $true
+                }
+            }
+            'A' {
+                if ($ctrl -and $page -eq 'NavUpdates' -and -not $inTextBox) {
+                    $all = @($ui.ListUpdates.ItemsSource)
+                    $on = -not ($all.Count -and @($all | Where-Object Selected).Count -eq $all.Count)
+                    foreach ($r in $all) { $r.Selected = $on }
+                    $ui.ChkSelectAll.IsChecked = $on
+                    $e.Handled = $true
+                }
+            }
+            default {
+                if ($ctrl -and "$($e.Key)" -match '^D([1-8])$') {
+                    $ui[$pageOrder[[int]$Matches[1] - 1]].IsChecked = $true
+                    $e.Handled = $true
+                }
+            }
+        }
+    })
 
     Add-Log 'info' "PSWindowsUpdateNext $moduleVersion console on $env:COMPUTERNAME ($($identity.Name), $(if ($isAdmin) { 'elevated' } else { 'not elevated' }))"
 

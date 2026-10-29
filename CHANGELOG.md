@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Console: a Cancel button in the status bar (and Esc) stops the running operation and clears queued ones. The Updates columns sort on header click, with a direction marker. Keyboard shortcuts: F5 refreshes the current page or scans, Ctrl+F focuses the filter, Ctrl+A toggles every listed update, Ctrl+1 through Ctrl+8 switch pages.
+
 ## 3.2.0 (2026-10-26)
 
 First release published to GitHub Releases and the PowerShell Gallery.
