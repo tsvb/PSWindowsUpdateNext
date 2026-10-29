@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.3.0 (2026-10-28)
 
 ### Fixed
 - Every cmdlet that logs the local module version (`Add-WUServiceManager`, `Get-WindowsUpdate`, `Get-WUApiVersion`, `Invoke-WUJob`, `Set-WUSettings`, and others) crashed with a null reference when the module was imported from a folder outside `PSModulePath`: the lookup ran `Get-Module -ListAvailable` in a fresh runspace and found nothing. The local version now comes from the loaded assembly, which also saves a runspace per call, and a missing remote module is reported instead of dereferenced. `Get-WUApiVersion` now fills `PSWindowsUpdateNext` and `PSWUModuleDll` in that situation too.
