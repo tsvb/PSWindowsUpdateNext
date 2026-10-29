@@ -1089,9 +1089,35 @@ public class WUTools : PSCmdlet
 	/// <param name="Computer">Computer name</param>
 	public PSObject GetPSWUModule(string Computer)
 	{
+		if (IsLocalHost(Computer))
+		{
+			// This code is the local module, so answer from the loaded assembly. The old approach ran
+			// Get-Module -ListAvailable in a fresh runspace, which cost a runspace per cmdlet call and
+			// found nothing when the module was imported from a folder outside PSModulePath.
+			Assembly assembly = typeof(WUTools).Assembly;
+			string location = assembly.Location;
+			Version assemblyVersion = assembly.GetName().Version;
+			Version fileVersion = assemblyVersion;
+			if (!string.IsNullOrEmpty(location))
+			{
+				try
+				{
+					fileVersion = new Version(FileVersionInfo.GetVersionInfo(location).FileVersion);
+				}
+				catch (Exception ex) when (ex is ArgumentException || ex is FormatException || ex is OverflowException || ex is FileNotFoundException)
+				{
+					// Keep the assembly version.
+				}
+			}
+			PSObject local = new PSObject();
+			local.Properties.Add(new PSNoteProperty("Name", "PSWindowsUpdateNext"));
+			local.Properties.Add(new PSNoteProperty("Version", new Version(assemblyVersion.Major, assemblyVersion.Minor, assemblyVersion.Build)));
+			local.Properties.Add(new PSNoteProperty("ModuleBase", PSWUModulePath()));
+			local.Properties.Add(new PSNoteProperty("PSWUDllVersion", fileVersion));
+			return local;
+		}
 		string text = "$Module = Get-Module PSWindowsUpdateNext -ListAvailable | Sort Version -Descending | Select -First 1; $Module | Add-Member -Type NoteProperty -Name PSWUDllVersion -Value ([Version]$(Try{[System.Diagnostics.FileVersionInfo]::GetVersionInfo($(Join-Path -Path $Module.ModuleBase -ChildPath $Module.RootModule)).FileVersion}Catch{'0.0.0.0'})); $Module";
-		string text2 = "";
-		text2 = ((!IsLocalHost(Computer)) ? ("Invoke-Command -ComputerName " + Computer + " -Command {" + text + "} -Authentication Negotiate") : text);
+		string text2 = "Invoke-Command -ComputerName " + Computer + " -Command {" + text + "} -Authentication Negotiate";
 		ErrorRecord errorRecord = null;
 		Collection<PSObject> collection;
 		using (PowerShell powerShell = PowerShell.Create())
@@ -1104,20 +1130,16 @@ public class WUTools : PSCmdlet
 			}
 		}
 		PSObject pSObject = new PSObject();
-		if (errorRecord == null)
+		if (errorRecord == null && collection.Count > 0 && collection[0] != null)
 		{
-			try
-			{
-				pSObject = collection[0];
-			}
-			catch (ArgumentOutOfRangeException)
-			{
-				// No result: the module is not installed on the target. Report it as missing, not as a failure.
-				pSObject.Properties.Add(new PSNoteProperty("PSWindowsUpdateNext", null));
-				pSObject.Properties.Add(new PSNoteProperty("PSWUModuleDll", null));
-			}
+			return collection[0];
 		}
-		else
+		// Missing module or a remoting error: always carry the two version properties (as null) so callers
+		// that read them for diagnostics do not dereference a missing property.
+		pSObject.Properties.Add(new PSNoteProperty("Name", "PSWindowsUpdateNext"));
+		pSObject.Properties.Add(new PSNoteProperty("Version", null));
+		pSObject.Properties.Add(new PSNoteProperty("PSWUDllVersion", null));
+		if (errorRecord != null)
 		{
 			pSObject.Properties.Add(new PSNoteProperty("Error", errorRecord));
 		}
@@ -1136,19 +1158,16 @@ public class WUTools : PSCmdlet
 		Version version2 = null;
 		if (errorRecord == null)
 		{
-			try
-			{
-				version2 = (Version)pSWUModule.Properties["Version"].Value;
-				if (version2 < version)
-				{
-					return new ErrorRecord(new Exception("To Invoke-WUJob you need PSWindowsUpdateNext " + version.ToString() + " on destination machine! Current module version is " + version2.ToString()), "LowModuleVersion", ErrorCategory.ResourceUnavailable, null);
-				}
-				return null;
-			}
-			catch
+			version2 = pSWUModule.Properties["Version"]?.Value as Version;
+			if (version2 == null)
 			{
 				return new ErrorRecord(new Exception("PSWindowsUpdateNext module missing on destination machine"), "ModuleMissing", ErrorCategory.ResourceUnavailable, null);
 			}
+			if (version2 < version)
+			{
+				return new ErrorRecord(new Exception("To Invoke-WUJob you need PSWindowsUpdateNext " + version.ToString() + " on destination machine! Current module version is " + version2.ToString()), "LowModuleVersion", ErrorCategory.ResourceUnavailable, null);
+			}
+			return null;
 		}
 		return errorRecord;
 	}
