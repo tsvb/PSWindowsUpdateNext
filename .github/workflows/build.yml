@@ -135,28 +135,40 @@ jobs:
     # The signing secrets live in this environment, which only allows v* tags. Repository secrets
     # would be readable by a workflow pushed on any branch.
     environment: signing
+    permissions:
+      contents: read
+      # Lets azure/login exchange GitHub's OIDC token for an Azure session; no Azure secret is stored.
+      id-token: write
     outputs:
       signed: ${{ steps.config.outputs.signed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Artifact Signing is used when its variables are set in the `signing` environment, otherwise a PFX
+      # secret. See docs/RELEASING.md.
       - name: Check signing configuration
         id: config
         shell: pwsh
         env:
           # The comparison yields 'true'/'false'; the secret value itself never reaches this step.
           HAS_CERT: ${{ secrets.SIGNING_CERT_PFX_BASE64 != '' }}
+          HAS_ARTIFACT_SIGNING: ${{ vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && vars.AZURE_SUBSCRIPTION_ID != '' && vars.ARTIFACT_SIGNING_ENDPOINT != '' && vars.ARTIFACT_SIGNING_ACCOUNT != '' && vars.ARTIFACT_SIGNING_PROFILE != '' }}
           ALLOW_UNSIGNED: ${{ vars.ALLOW_UNSIGNED_RELEASE }}
         run: |
-          if ($env:HAS_CERT -eq 'true') {
+          if ($env:HAS_ARTIFACT_SIGNING -eq 'true') {
             Add-Content -Path $env:GITHUB_OUTPUT -Value 'signed=true'
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'method=artifact-signing'
+          }
+          elseif ($env:HAS_CERT -eq 'true') {
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'signed=true'
+            Add-Content -Path $env:GITHUB_OUTPUT -Value 'method=pfx'
           }
           elseif ($env:ALLOW_UNSIGNED -eq 'true') {
             Add-Content -Path $env:GITHUB_OUTPUT -Value 'signed=false'
-            Write-Host '::warning title=UNSIGNED RELEASE::SIGNING_CERT_PFX_BASE64 is not set and ALLOW_UNSIGNED_RELEASE is true. This release will NOT be Authenticode-signed.'
+            Write-Host '::warning title=UNSIGNED RELEASE::Neither the Artifact Signing variables nor SIGNING_CERT_PFX_BASE64 are set, and ALLOW_UNSIGNED_RELEASE is true. This release will NOT be Authenticode-signed.'
           }
           else {
-            Write-Host '::error title=Release is not signed::The SIGNING_CERT_PFX_BASE64 secret is not set in the `signing` environment, so this tag cannot be released signed. Add the signing secrets to that environment (see docs/RELEASING.md), or set the repository variable ALLOW_UNSIGNED_RELEASE to true to ship an unsigned release deliberately.'
+            Write-Host '::error title=Release is not signed::The `signing` environment has neither the Artifact Signing variables nor the SIGNING_CERT_PFX_BASE64 secret, so this tag cannot be released signed. Configure one of them (see docs/RELEASING.md), or set the repository variable ALLOW_UNSIGNED_RELEASE to true to ship an unsigned release deliberately.'
             exit 1
           }
 
@@ -165,8 +177,35 @@ jobs:
           name: PSWindowsUpdateNext
           path: PSWindowsUpdateNext
 
-      - name: Sign module
-        if: steps.config.outputs.signed == 'true'
+      - name: Sign in to Azure (OIDC)
+        if: steps.config.outputs.method == 'artifact-signing'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The Artifact Signing plug-in runs on .NET 8.
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: steps.config.outputs.method == 'artifact-signing'
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Sign module (Artifact Signing)
+        if: steps.config.outputs.method == 'artifact-signing'
+        shell: pwsh
+        env:
+          ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+        run: >-
+          ./tools/Sign-Module.ps1 -ModulePath PSWindowsUpdateNext
+          -ArtifactSigningEndpoint $env:ARTIFACT_SIGNING_ENDPOINT
+          -ArtifactSigningAccount $env:ARTIFACT_SIGNING_ACCOUNT
+          -ArtifactSigningProfile $env:ARTIFACT_SIGNING_PROFILE
+
+      - name: Sign module (PFX)
+        if: steps.config.outputs.method == 'pfx'
         shell: pwsh
         env:
           SIGNING_CERT_PFX_BASE64: ${{ secrets.SIGNING_CERT_PFX_BASE64 }}

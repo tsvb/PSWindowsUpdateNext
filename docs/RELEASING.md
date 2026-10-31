@@ -13,7 +13,7 @@ build  ->  sign                      ->  release  ->  publish
 | Job | Runs on | Does | Needs |
 | --- | --- | --- | --- |
 | `build` | every push and PR | On tags only, first checks that the tag, `ModuleVersion`, the csproj `<Version>` and `CHANGELOG.md` agree. Builds, runs the Pester tests in PowerShell 7 and Windows PowerShell 5.1, uploads the unsigned module. | nothing |
-| `sign` | `v*` tags | Authenticode-signs the module once, verifies every file in PowerShell 7 and 5.1, re-runs the Pester tests against the signed module, uploads the signed module. Runs in the `signing` environment. | signing secrets |
+| `sign` | `v*` tags | Authenticode-signs the module once, through Azure Artifact Signing or with a PFX, verifies every file in PowerShell 7 and 5.1, re-runs the Pester tests against the signed module, uploads the signed module. Runs in the `signing` environment. | Artifact Signing variables, or the PFX secrets |
 | `release` | `v*` tags | Zips the signed module, writes a SHA-256 checksum file, attests build provenance for the zip and each module file, takes the release notes from `CHANGELOG.md`, creates the GitHub release. The only job with `contents: write`. | nothing |
 | `publish` | `v*` tags | Runs `Test-ModuleManifest`, then `Publish-PSResource` (falling back to `Publish-Module` only if PSResourceGet is missing) with the signed module. Runs in the `release` environment. | `PSGALLERY_API_KEY` |
 
@@ -25,14 +25,43 @@ Everything the console runs is covered by a signature. The console's row types a
 
 ## One-time setup
 
+### Signing with Azure Artifact Signing (recommended)
+
+Artifact Signing keeps the private key in Microsoft's HSMs. The `sign` job signs in to Azure with GitHub's OIDC token, so no certificate, key, or password is stored in GitHub. It costs about $9.99 a month (Basic) from the day the account is created. Individuals must be in the US or Canada.
+
+1. **Azure subscription.** A pay-as-you-go subscription (a free or sponsored one does not work). Register the resource provider: `az provider register --namespace Microsoft.CodeSigning`.
+2. **Artifact Signing account.** In the Azure portal, create an Artifact Signing account (Basic tier) in a resource group. The name must be globally unique, 3 to 24 alphanumeric characters, and start with a letter. Note its region: the endpoint must match it, for example `https://eus.codesigning.azure.net` for East US (the full list is in Microsoft's [signing integrations](https://learn.microsoft.com/azure/artifact-signing/how-to-signing-integrations) article).
+3. **Identity validation.** It can only be done in the portal. Before starting, make sure the subscription's Azure billing account has the account type **Individual**, and that its legal name and sold-to address match your government ID exactly: the validation copies them from there, and the name, city, state, and country end up in the certificate. Give yourself the **Artifact Signing Identity Verifier** role on the account, open **Identity validations**, choose **Individual**, then **New Identity** > **Public**. When the status changes to **Action Required**, follow the link: verification runs through AU10TIX with your phone's camera and stores a Verified ID in Microsoft Authenticator. Microsoft quotes up to 20 business days if more documents are needed.
+4. **Certificate profile.** Once the validation is complete, create a certificate profile of type **Public Trust** that uses it. The subject will carry your validated name.
+5. **An identity for GitHub.** In Microsoft Entra ID, create an app registration (for example `PSWindowsUpdateNext signing`). Under **Certificates & secrets > Federated credentials**, add a credential for GitHub Actions with organization `tsvb`, repository `PSWindowsUpdateNext`, entity type **Environment**, and environment `signing`. This makes the subject `repo:tsvb/PSWindowsUpdateNext:environment:signing`, so only jobs in the `signing` environment, which only tags can enter, can sign in as it. Do not create a client secret.
+6. **Permission to sign.** On the certificate profile (not the whole account or subscription), give that app registration the **Artifact Signing Certificate Profile Signer** role. It needs no other role.
+7. **Variables.** Add these as variables (not secrets; none of them is sensitive) in the `signing` environment:
+
+   | Variable | Value |
+   | --- | --- |
+   | `AZURE_CLIENT_ID` | The app registration's application (client) ID |
+   | `AZURE_TENANT_ID` | Your Microsoft Entra tenant ID |
+   | `AZURE_SUBSCRIPTION_ID` | The subscription that holds the signing account |
+   | `ARTIFACT_SIGNING_ENDPOINT` | The regional endpoint from step 2 |
+   | `ARTIFACT_SIGNING_ACCOUNT` | The Artifact Signing account name |
+   | `ARTIFACT_SIGNING_PROFILE` | The certificate profile name |
+
+8. **Turn off unsigned releases.** Delete the repository variable `ALLOW_UNSIGNED_RELEASE`, so a broken signing setup fails the release instead of shipping unsigned files.
+
+When all six variables are set, the `sign` job uses Artifact Signing even if a PFX secret also exists. SignTool and the Artifact Signing plug-in are downloaded from nuget.org at pinned versions and checked against pinned SHA-512 digests (`tools/Install-ArtifactSigningTools.ps1`).
+
+Artifact Signing certificates are valid for three days and are renewed automatically. The RFC 3161 timestamp from `timestamp.acs.microsoft.com` is what keeps a signature valid after that, so the job fails any file without one.
+
+To sign locally with the same account, sign in with `az login` as a user who has the Certificate Profile Signer role, then run `./tools/Sign-Module.ps1 -ModulePath .\out\PSWindowsUpdateNext -ArtifactSigningEndpoint <endpoint> -ArtifactSigningAccount <account> -ArtifactSigningProfile <profile>`.
+
 ### Secrets and variable
 
-Create the secrets in the environments described in the next section. Create the variable under **Settings > Secrets and variables > Actions**.
+The PFX secrets are only needed when signing with a PFX instead of Artifact Signing. Create the secrets in the environments described in the next section. Create the variable under **Settings > Secrets and variables > Actions**.
 
 | Name | Kind | Where | Value |
 | --- | --- | --- | --- |
-| `SIGNING_CERT_PFX_BASE64` | secret | `signing` environment | Base64 of the code-signing `.pfx`. |
-| `SIGNING_CERT_PASSWORD` | secret | `signing` environment | The PFX password. Leave unset only if the PFX has no password. |
+| `SIGNING_CERT_PFX_BASE64` | secret | `signing` environment | Base64 of the code-signing `.pfx` (PFX signing only). |
+| `SIGNING_CERT_PASSWORD` | secret | `signing` environment | The PFX password (PFX signing only). Leave unset only if the PFX has no password. |
 | `PSGALLERY_API_KEY` | secret | `release` environment | PowerShell Gallery API key (below). |
 | `ALLOW_UNSIGNED_RELEASE` | variable | repository | Leave unset. Set to `true` only to ship an unsigned release on purpose. |
 
@@ -50,7 +79,7 @@ Delete the local `.pfx` and any base64 copy afterwards, or keep them in a passwo
 
 **What happens when something is missing**
 
-- No `SIGNING_CERT_PFX_BASE64` on a tag: the `sign` job fails with an error that says so, and nothing is released. If `ALLOW_UNSIGNED_RELEASE` is `true`, it emits a warning annotation instead, the release notes get an "not Authenticode-signed" warning at the top, and the release continues (the Gallery publish too).
+- Neither the six Artifact Signing variables nor `SIGNING_CERT_PFX_BASE64` on a tag: the `sign` job fails with an error that says so, and nothing is released. If `ALLOW_UNSIGNED_RELEASE` is `true`, it emits a warning annotation instead, the release notes get an "not Authenticode-signed" warning at the top, and the release continues (the Gallery publish too).
 - No `PSGALLERY_API_KEY`: the `publish` job warns and skips publishing. The GitHub release is unaffected.
 - Branch and PR builds never need any of these.
 
@@ -61,7 +90,7 @@ Create both environments before the first tag. Create them under **Settings > En
 - **`signing`**
   - Under **Deployment branches and tags**, choose **Selected branches and tags** and add only the tag rule `v*`.
   - No reviewers are needed.
-  - Add `SIGNING_CERT_PFX_BASE64` and `SIGNING_CERT_PASSWORD` as environment secrets.
+  - Add the Artifact Signing variables, or, for PFX signing, `SIGNING_CERT_PFX_BASE64` and `SIGNING_CERT_PASSWORD` as environment secrets.
 - **`release`**
   - Use the same `v*` tag rule.
   - Enable **Required reviewers** and add the people allowed to approve a publish. The `publish` job then pauses until someone approves, after the GitHub release exists.
@@ -73,11 +102,11 @@ Also add a tag ruleset under **Settings > Rules > Rulesets**, targeting tags mat
 
 Sign in at powershellgallery.com, open **API Keys**, and create a key with **Push new packages and package versions**, scoped to the glob `PSWindowsUpdateNext`, with the shortest expiry you are willing to renew (the Gallery maximum is one year). Put the key in `PSGALLERY_API_KEY`. Gallery keys expire; a failing publish with an authorization error usually means it has.
 
-### Getting a code-signing certificate (brief)
+### Signing with a PFX instead (brief)
 
-You need a publicly trusted code-signing certificate (OV or EV) from a certificate authority such as DigiCert, Sectigo, or SSL.com. The job requires every signature to be `Valid` on the runner, so a self-signed certificate will not work: it fails verification. It would also not be trusted on your users' machines.
+This is only needed if you do not use Artifact Signing. You need a publicly trusted code-signing certificate (OV or EV) from a certificate authority such as DigiCert, Sectigo, or SSL.com. The job requires every signature to be `Valid` on the runner, so a self-signed certificate will not work: it fails verification. It would also not be trusted on your users' machines.
 
-Caveat: since 2023 the CA/Browser Forum rules require the private key of a publicly trusted code-signing certificate to be held in certified hardware (a token or cloud HSM). Many CAs therefore no longer hand out an exportable `.pfx`. This pipeline needs a PFX. Before buying, confirm with the CA that you can get an exportable PFX (some offer it, or allow generating the key in software for older or specific products). If you can only get a hardware-token or cloud-HSM certificate, the signing step in `tools/Sign-Module.ps1` has to be replaced with that vendor's signing client; that is not implemented here.
+Caveat: since 2023 the CA/Browser Forum rules require the private key of a publicly trusted code-signing certificate to be held in certified hardware (a token or cloud HSM). Many CAs therefore no longer hand out an exportable `.pfx`. This pipeline needs a PFX. Before buying, confirm with the CA that you can get an exportable PFX (some offer it, or allow generating the key in software for older or specific products). If you can only get a hardware-token or cloud-HSM certificate from a CA, `tools/Sign-Module.ps1` would need that vendor's signing client; that is not implemented here.
 
 The certificate must have the Code Signing enhanced key usage and must not be expired; the script checks both. Renew before expiry: the RFC 3161 timestamp keeps already-released files valid after the certificate expires, but new releases need a current certificate.
 
