@@ -239,6 +239,9 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+      # Build provenance: a GitHub-signed statement of which commit and workflow built the release files.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -272,6 +275,14 @@ jobs:
             $notes = "> **Warning:** the files in this release are not Authenticode-signed.`n`n$notes"
           }
           [System.IO.File]::WriteAllText((Join-Path $PWD 'release-notes.md'), $notes + "`n", $noBom)
+
+      # Attest the zip and every file inside it, so a Gallery install can be checked as well:
+      # gh attestation verify <file> --repo tsvb/PSWindowsUpdateNext
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            PSWindowsUpdateNext-*.zip
+            PSWindowsUpdateNext/**
 
       # Third-party action in the job that can write to the repository: pinned to a commit (v2.6.2).
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64

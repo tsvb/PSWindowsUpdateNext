@@ -14,7 +14,7 @@ build  ->  sign                      ->  release  ->  publish
 | --- | --- | --- | --- |
 | `build` | every push and PR | On tags only, first checks that the tag, `ModuleVersion`, the csproj `<Version>` and `CHANGELOG.md` agree. Builds, runs the Pester tests in PowerShell 7 and Windows PowerShell 5.1, uploads the unsigned module. | nothing |
 | `sign` | `v*` tags | Authenticode-signs the module once, verifies every file in PowerShell 7 and 5.1, re-runs the Pester tests against the signed module, uploads the signed module. Runs in the `signing` environment. | signing secrets |
-| `release` | `v*` tags | Zips the signed module, writes a SHA-256 checksum file, takes the release notes from `CHANGELOG.md`, creates the GitHub release. The only job with `contents: write`. | nothing |
+| `release` | `v*` tags | Zips the signed module, writes a SHA-256 checksum file, attests build provenance for the zip and each module file, takes the release notes from `CHANGELOG.md`, creates the GitHub release. The only job with `contents: write`. | nothing |
 | `publish` | `v*` tags | Runs `Test-ModuleManifest`, then `Publish-PSResource` (falling back to `Publish-Module` only if PSResourceGet is missing) with the signed module. Runs in the `release` environment. | `PSGALLERY_API_KEY` |
 
 The GitHub zip and the Gallery package are made from the same signed files; signing happens exactly once.
@@ -114,6 +114,7 @@ Example for version `3.2.0`. Use the same number everywhere.
    - The GitHub release has `PSWindowsUpdateNext-v3.2.0.zip`, `PSWindowsUpdateNext-v3.2.0.zip.sha256`, and the changelog text as its body.
    - In an extracted zip: `Get-ChildItem -Recurse -Include *.dll,*.psm1,*.psd1,*.ps1xml,*.ps1 | Get-AuthenticodeSignature | Select-Object Path, Status`. All should be `Valid`.
    - The checksum: `(Get-FileHash .\PSWindowsUpdateNext-v3.2.0.zip).Hash` matches the `.sha256` file (compare case-insensitively).
+   - The provenance: `gh attestation verify .\PSWindowsUpdateNext-v3.2.0.zip --repo tsvb/PSWindowsUpdateNext` passes. Each file inside the zip is attested too.
    - `Find-PSResource PSWindowsUpdateNext -Repository PSGallery` (or `Find-Module`) shows 3.2.0. Gallery indexing can take a few minutes.
 
 The version check is strict: the tag must be `v` plus exactly the manifest and csproj version. Pre-release tags such as `v3.2.0-beta1` are rejected.
