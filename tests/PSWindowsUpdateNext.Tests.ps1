@@ -124,9 +124,13 @@ Describe 'Windows Update Agent access' {
         $info.WuapiDllVersion | Should -Not -BeNullOrEmpty
     }
 
-    It 'Get-WUHistory returns history entries' {
-        $history = Get-WUHistory -Last 3 -WarningAction SilentlyContinue
-        @($history).Count | Should -BeGreaterThan 0
+    It 'Get-WUHistory reads the history without errors' {
+        # Some hosted runner images have no Windows Update history at all, so an empty result is valid.
+        $history = @(Get-WUHistory -Last 3 -WarningAction SilentlyContinue -ErrorAction Stop)
+        $history.Count | Should -BeLessOrEqual 3
+        foreach ($entry in $history) {
+            $entry.PSObject.TypeNames | Should -Contain 'PSWindowsUpdateNext.History'
+        }
     }
 
     It 'Get-WUServiceManager lists the Windows Update service' {
