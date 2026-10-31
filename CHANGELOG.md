@@ -5,6 +5,11 @@
 ### Security
 - Release builds publish a build provenance attestation for the zip and for every file in the module, signed by GitHub. Check one with `gh attestation verify <file> --repo tsvb/PSWindowsUpdateNext`.
 - CodeQL scans the C# and the GitHub Actions workflows on every push and pull request to `main` and weekly, with the `security-extended` queries.
+- Releases can be signed through Azure Artifact Signing. The `sign` job signs in to Azure with GitHub's OIDC token, so no certificate, key, or password is stored in GitHub, and the private key never leaves Microsoft's HSMs. SignTool and the Artifact Signing plug-in are downloaded at pinned versions and checked against pinned SHA-512 digests. PFX signing still works when the Artifact Signing variables are not set. Setup is in `docs/RELEASING.md`.
+- `tools/Sign-Module.ps1` now also fails if the files were not all signed by the same certificate.
+
+### Fixed
+- `PSWindowsUpdateNext.Format.ps1xml` still carried the original module's Authenticode signature block, which no longer matched the edited file, so an unsigned release reported it as `HashMismatch` instead of `NotSigned`. The block is removed.
 
 ## 3.3.0 (2026-10-28)
 

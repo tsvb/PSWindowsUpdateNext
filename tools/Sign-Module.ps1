@@ -7,15 +7,24 @@
       - net472\PSWindowsUpdateNext.dll and net8.0-windows\PSWindowsUpdateNext.dll
       - *.psm1, *.psd1, *.ps1xml and *.ps1 (this includes Gui\*.ps1)
 
-    The certificate comes from a base64-encoded PFX (normally the SIGNING_CERT_PFX_BASE64 and
-    SIGNING_CERT_PASSWORD secrets, passed in as environment variables). The PFX is written to a
-    temporary file and loaded directly, without importing it into a certificate store; the file is
-    always removed and the private key is released when signing ends.
+    Two ways to sign:
+
+      - Azure Artifact Signing (-ArtifactSigningEndpoint, -ArtifactSigningAccount,
+        -ArtifactSigningProfile). The private key stays in Microsoft's HSM; SignTool sends each
+        file's digest to the signing account through the Artifact Signing plug-in, authenticating
+        as the signed-in Azure CLI identity (in CI, the azure/login OIDC session). SignTool and the
+        plug-in come from tools\Install-ArtifactSigningTools.ps1 unless -SignToolPath and -DlibPath
+        are given. The certificates are short-lived, so the timestamp is what keeps the signatures
+        valid.
+      - A base64-encoded PFX (normally the SIGNING_CERT_PFX_BASE64 and SIGNING_CERT_PASSWORD
+        secrets, passed in as environment variables). The PFX is written to a temporary file and
+        loaded directly, without importing it into a certificate store; the file is always removed
+        and the private key is released when signing ends.
 
     After signing, every signable file is checked with Get-AuthenticodeSignature. The script
-    throws if any status is not 'Valid', if a file has no signer, or if a signature has no
-    timestamp. Use -VerifyOnly to run just that check (for example under Windows PowerShell 5.1
-    after signing under PowerShell 7).
+    throws if any status is not 'Valid', if a file has no signer, if the files were not all signed
+    by the same certificate, or if a signature has no timestamp. Use -VerifyOnly to run just that
+    check (for example under Windows PowerShell 5.1 after signing under PowerShell 7).
 
     Files that cannot be Authenticode-signed (*-Help.xml) are left alone. The console's XAML is embedded in the signed DLLs.
 .PARAMETER ModulePath
@@ -25,7 +34,18 @@
 .PARAMETER PfxPassword
     PFX password. Defaults to $env:SIGNING_CERT_PASSWORD. May be empty if the PFX has none.
 .PARAMETER TimestampServer
-    One or more RFC 3161 timestamp servers, tried in order with retries.
+    One or more RFC 3161 timestamp servers, tried in order with retries. Defaults to Microsoft's
+    Artifact Signing timestamp server with Artifact Signing, and to public CA servers with a PFX.
+.PARAMETER ArtifactSigningEndpoint
+    The regional endpoint of the Artifact Signing account, for example https://eus.codesigning.azure.net.
+.PARAMETER ArtifactSigningAccount
+    The Artifact Signing account name.
+.PARAMETER ArtifactSigningProfile
+    The certificate profile name in that account.
+.PARAMETER SignToolPath
+    signtool.exe to use with Artifact Signing. Downloaded at a pinned version when omitted.
+.PARAMETER DlibPath
+    Azure.CodeSigning.Dlib.dll to use with Artifact Signing. Downloaded at a pinned version when omitted.
 .PARAMETER VerifyOnly
     Do not sign; only verify that every signable file has a valid, timestamped signature.
 #>
@@ -42,11 +62,23 @@ param(
     [string]$PfxPassword = $env:SIGNING_CERT_PASSWORD,
 
     [Parameter(ParameterSetName = 'Sign')]
-    [string[]]$TimestampServer = @(
-        'http://timestamp.digicert.com',
-        'http://timestamp.sectigo.com',
-        'http://timestamp.globalsign.com/tsa/r6advanced1'
-    ),
+    [Parameter(ParameterSetName = 'ArtifactSigning')]
+    [string[]]$TimestampServer,
+
+    [Parameter(Mandatory, ParameterSetName = 'ArtifactSigning')]
+    [string]$ArtifactSigningEndpoint,
+
+    [Parameter(Mandatory, ParameterSetName = 'ArtifactSigning')]
+    [string]$ArtifactSigningAccount,
+
+    [Parameter(Mandatory, ParameterSetName = 'ArtifactSigning')]
+    [string]$ArtifactSigningProfile,
+
+    [Parameter(ParameterSetName = 'ArtifactSigning')]
+    [string]$SignToolPath,
+
+    [Parameter(ParameterSetName = 'ArtifactSigning')]
+    [string]$DlibPath,
 
     [Parameter(Mandatory, ParameterSetName = 'Verify')]
     [switch]$VerifyOnly
@@ -93,6 +125,8 @@ function Confirm-Signature {
     param([string]$Root, [System.IO.FileInfo[]]$Files, [string]$ExpectedThumbprint)
 
     $failures = New-Object System.Collections.Generic.List[string]
+    # Without an expected certificate, every file must at least carry the same one as the first file.
+    $sameSigner = -not $ExpectedThumbprint
     foreach ($file in $Files) {
         $name = Get-RelativeName -Root $Root -FullName $file.FullName
         $sig = Get-AuthenticodeSignature -LiteralPath $file.FullName
@@ -105,6 +139,8 @@ function Confirm-Signature {
             $problem = "signed by an unexpected certificate ($($sig.SignerCertificate.Thumbprint))"
         } elseif ($null -eq $sig.TimeStamperCertificate) {
             $problem = 'signature has no timestamp'
+        } elseif ($sameSigner -and -not $ExpectedThumbprint) {
+            $ExpectedThumbprint = $sig.SignerCertificate.Thumbprint
         }
 
         if ($problem) {
@@ -156,8 +192,73 @@ if ($VerifyOnly) {
     return
 }
 
+foreach ($file in $files) {
+    if ($file.Extension.ToLowerInvariant() -ne '.dll') { Set-Utf8BomIfNeeded -Path $file.FullName }
+}
+
+if ($PSCmdlet.ParameterSetName -eq 'ArtifactSigning') {
+    if (-not $TimestampServer) { $TimestampServer = @('http://timestamp.acs.microsoft.com') }
+    if (-not $SignToolPath -or -not $DlibPath) {
+        $tools = & (Join-Path -Path $PSScriptRoot -ChildPath 'Install-ArtifactSigningTools.ps1')
+        if (-not $SignToolPath) { $SignToolPath = $tools.SignToolPath }
+        if (-not $DlibPath) { $DlibPath = $tools.DlibPath }
+    }
+
+    $tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
+    $metadataPath = Join-Path -Path $tempRoot -ChildPath ('pswunext-sign-{0}.json' -f [guid]::NewGuid().ToString('N'))
+    # Authenticate only as the signed-in Azure CLI identity. The other DefaultAzureCredential sources
+    # are skipped so a stray managed identity or cached account on the machine cannot be used instead.
+    $metadata = [ordered]@{
+        Endpoint               = $ArtifactSigningEndpoint
+        CodeSigningAccountName = $ArtifactSigningAccount
+        CertificateProfileName = $ArtifactSigningProfile
+        CorrelationId          = if ($env:GITHUB_RUN_ID) { "github-run-$($env:GITHUB_RUN_ID)" } else { "local-$([guid]::NewGuid().ToString('N'))" }
+        ExcludeCredentials     = @(
+            'ManagedIdentityCredential',
+            'WorkloadIdentityCredential',
+            'SharedTokenCacheCredential',
+            'VisualStudioCredential',
+            'VisualStudioCodeCredential',
+            'AzurePowerShellCredential',
+            'AzureDeveloperCliCredential',
+            'InteractiveBrowserCredential'
+        )
+    }
+
+    try {
+        [System.IO.File]::WriteAllText($metadataPath, ($metadata | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "Signing $($files.Count) file(s) with Artifact Signing: account $ArtifactSigningAccount, profile $ArtifactSigningProfile ($ArtifactSigningEndpoint)"
+
+        $signed = $false
+        :attempts foreach ($attempt in 1..3) {
+            foreach ($server in $TimestampServer) {
+                $arguments = @('sign', '/v', '/fd', 'SHA256', '/tr', $server, '/td', 'SHA256', '/dlib', $DlibPath, '/dmdf', $metadataPath) + @($files.FullName)
+                & $SignToolPath @arguments
+                if ($LASTEXITCODE -eq 0) { $signed = $true; break attempts }
+                Write-Warning "SignTool failed with exit code $LASTEXITCODE via $server (attempt $attempt)."
+            }
+            if ($attempt -lt 3) { Start-Sleep -Seconds (5 * $attempt) }
+        }
+        if (-not $signed) { throw 'Could not sign the module with Artifact Signing. See the SignTool output above.' }
+
+        Write-Host 'Verifying signatures...'
+        Confirm-Signature -Root $root -Files $files
+        Write-Host "Signed and verified $($files.Count) file(s)."
+    } finally {
+        if (Test-Path -LiteralPath $metadataPath) { Remove-Item -LiteralPath $metadataPath -Force -ErrorAction SilentlyContinue }
+    }
+    return
+}
+
+if (-not $TimestampServer) {
+    $TimestampServer = @(
+        'http://timestamp.digicert.com',
+        'http://timestamp.sectigo.com',
+        'http://timestamp.globalsign.com/tsa/r6advanced1'
+    )
+}
 if ([string]::IsNullOrWhiteSpace($PfxBase64)) {
-    throw 'No signing certificate supplied. Set SIGNING_CERT_PFX_BASE64 (base64 of the .pfx) or pass -PfxBase64.'
+    throw 'No signing certificate supplied. Pass the -ArtifactSigning* parameters, or set SIGNING_CERT_PFX_BASE64 (base64 of the .pfx) or pass -PfxBase64.'
 }
 if (-not [string]::IsNullOrEmpty($PfxPassword) -and $env:GITHUB_ACTIONS -eq 'true') {
     # GitHub masks secrets already; this also covers a password that was passed some other way.
@@ -192,9 +293,6 @@ try {
 
     foreach ($file in $files) {
         $name = Get-RelativeName -Root $root -FullName $file.FullName
-        $isText = $file.Extension.ToLowerInvariant() -ne '.dll'
-        if ($isText) { Set-Utf8BomIfNeeded -Path $file.FullName }
-
         $signed = $false
         $lastProblem = $null
         $fatal = $false
