@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Security
+- Release builds publish a build provenance attestation for the zip and for every file in the module, signed by GitHub. Check one with `gh attestation verify <file> --repo tsvb/PSWindowsUpdateNext`.
+- CodeQL scans the C# and the GitHub Actions workflows on every push and pull request to `main` and weekly, with the `security-extended` queries.
+
 ## 3.3.0 (2026-10-28)
 
 ### Fixed
