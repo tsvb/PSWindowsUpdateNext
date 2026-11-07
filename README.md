@@ -40,7 +40,7 @@ power-user front end rather than a prompt. It runs in Windows PowerShell 5.1 and
 ![Dashboard](docs/console-dashboard.png)
 
 - Dashboard: reboot state, last search and install, agent version, default service, 30-day install stats, recent history, and the client policy at a glance.
-- Updates: scan the default service, Microsoft Update, or Windows Update; filter by text, hidden, installed, or reboot-required; select rows and download, install, hide, or unhide them; a detail panel shows description, severity, size, and the support article.
+- Updates: scan the default service, Microsoft Update, or Windows Update; filter by text, hidden, installed, or reboot-required; select rows and download, install, hide, or unhide them; updates that a newer update in the same scan supersedes are hidden unless you ask for them; a detail panel shows description, severity, size, and the support article.
 - History: the agent's operation log with result badges, count selector, and text filter.
 - Services: registered service managers with Default and Managed badges, register Microsoft Update, remove a service.
 - Settings: live view of the Windows Update policy keys plus a form for NoAutoUpdate, AUOptions, scheduled install day and hour, feature-update pinning, and deferral periods.

@@ -5,9 +5,9 @@
 <Color x:Key="C.Raised">#182238</Color>
 <Color x:Key="C.Border">#243049</Color>
 <Color x:Key="C.Text">#E6EDF7</Color>
-<Color x:Key="C.Muted">#8A97B0</Color>
+<Color x:Key="C.Muted">#AEB9CC</Color>
 <Color x:Key="C.Accent">#4F8CFF</Color>
-<Color x:Key="C.AccentDeep">#2E6BE6</Color>
+<Color x:Key="C.AccentDeep">#2563EB</Color>
 <Color x:Key="C.Success">#2ECC8A</Color>
 <Color x:Key="C.Warning">#F5B731</Color>
 <Color x:Key="C.Danger">#FF5C6C</Color>
@@ -68,7 +68,7 @@
 </Style>
 <Style x:Key="T.Label" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
     <Setter Property="Foreground" Value="{StaticResource B.Muted}"/>
-    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="FontSize" Value="12"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="Typography.Capitals" Value="AllSmallCaps"/>
 </Style>
@@ -158,8 +158,9 @@
     </Setter>
 </Style>
 <Style x:Key="BtnPrimary" TargetType="Button" BasedOn="{StaticResource Btn}">
-    <Setter Property="Background" Value="{StaticResource B.Accent}"/>
-    <Setter Property="BorderBrush" Value="{StaticResource B.AccentDeep}"/>
+    <!-- White on the deep accent is about 5:1; on the bright accent it was 3.2:1. -->
+    <Setter Property="Background" Value="{StaticResource B.AccentDeep}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource B.Accent}"/>
     <Setter Property="Foreground" Value="#FFFFFF"/>
 </Style>
 <Style x:Key="BtnDanger" TargetType="Button" BasedOn="{StaticResource Btn}">
@@ -253,6 +254,7 @@
 
 <!-- Chip-style toggle (filters) -->
 <Style x:Key="Chip" TargetType="ToggleButton">
+    <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="Foreground" Value="{StaticResource B.Muted}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Margin" Value="0,0,6,0"/>

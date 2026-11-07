@@ -42,6 +42,11 @@ namespace PSWindowsUpdateNext.Gui
         public string Description { get; set; }
         public string MoreInfoUrl { get; set; }
         public DateTime Published { get; set; }
+        // Update IDs this update replaces, from IUpdate.SupersededUpdateIDs.
+        public string[] Supersedes { get; set; }
+        // Title of a newer update in the same scan that replaces this one; null when nothing does.
+        public string SupersededBy { get; set; }
+        public bool IsSuperseded { get { return !string.IsNullOrEmpty(SupersededBy); } }
         public string PublishedText { get { return Published == DateTime.MinValue ? "" : Published.ToString("yyyy-MM-dd"); } }
         public string KBVisibility { get { return string.IsNullOrWhiteSpace(KB) ? "Collapsed" : "Visible"; } }
         public string StateText
@@ -50,6 +55,7 @@ namespace PSWindowsUpdateNext.Gui
             {
                 if (IsInstalled) return "Installed";
                 if (IsHidden) return "Hidden";
+                if (IsSuperseded) return "Superseded";
                 if (IsDownloaded) return "Downloaded";
                 return "Available";
             }
@@ -59,7 +65,8 @@ namespace PSWindowsUpdateNext.Gui
             get
             {
                 if (IsInstalled) return "#2ECC8A";
-                if (IsHidden) return "#8A97B0";
+                if (IsHidden) return "#AEB9CC";
+                if (IsSuperseded) return "#C4A7FF";
                 if (IsDownloaded) return "#4F8CFF";
                 return "#F5B731";
             }
@@ -73,7 +80,7 @@ namespace PSWindowsUpdateNext.Gui
                     case "critical": return "#FF5C6C";
                     case "important": return "#F5B731";
                     case "moderate": return "#4F8CFF";
-                    case "low": return "#8A97B0";
+                    case "low": return "#AEB9CC";
                     default: return "#3A4661";
                 }
             }
@@ -99,7 +106,7 @@ namespace PSWindowsUpdateNext.Gui
                     case "failed": return "#FF5C6C";
                     case "aborted": return "#FF5C6C";
                     case "inprogress": return "#4F8CFF";
-                    default: return "#8A97B0";
+                    default: return "#AEB9CC";
                 }
             }
         }
@@ -131,7 +138,7 @@ namespace PSWindowsUpdateNext.Gui
                 {
                     case "running": return "#4F8CFF";
                     case "ready": return "#2ECC8A";
-                    case "disabled": return "#8A97B0";
+                    case "disabled": return "#AEB9CC";
                     default: return "#F5B731";
                 }
             }
@@ -161,7 +168,7 @@ namespace PSWindowsUpdateNext.Gui
                     case "error": return "#FF5C6C";
                     case "canceled": return "#F5B731";
                     case "accepted": return "#4F8CFF";
-                    default: return "#3A4661";
+                    default: return "#AEB9CC";
                 }
             }
         }
@@ -187,8 +194,8 @@ namespace PSWindowsUpdateNext.Gui
                 {
                     case "error": return "#FF5C6C";
                     case "warning": return "#F5B731";
-                    case "verbose": return "#8A97B0";
-                    case "debug": return "#5B6B8A";
+                    case "verbose": return "#AEB9CC";
+                    case "debug": return "#8794AE";
                     case "task": return "#4F8CFF";
                     case "ok": return "#2ECC8A";
                     default: return "#E6EDF7";
