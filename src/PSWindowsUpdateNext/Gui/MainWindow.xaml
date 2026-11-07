@@ -11,7 +11,7 @@
         <!--THEME-->
     </Window.Resources>
 
-    <Grid>
+    <Grid TextElement.Foreground="{StaticResource B.Text}" TextElement.FontFamily="{StaticResource F.UI}">
         <Grid.RowDefinitions>
             <RowDefinition Height="44"/>
             <RowDefinition Height="*"/>
@@ -267,6 +267,7 @@
                             <ToggleButton x:Name="ChipHidden" Style="{StaticResource Chip}" Content="Include hidden" Margin="0,0,6,4"/>
                             <ToggleButton x:Name="ChipInstalled" Style="{StaticResource Chip}" Content="Installed" Margin="0,0,6,4"/>
                             <ToggleButton x:Name="ChipRebootOnly" Style="{StaticResource Chip}" Content="Needs reboot" Margin="0,0,6,4"/>
+                            <ToggleButton x:Name="ChipSuperseded" Style="{StaticResource Chip}" Content="Show superseded" Margin="0,0,6,4" ToolTip="List updates that a newer update in this scan replaces. They are hidden by default and never installed by Install everything."/>
                         </WrapPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                             <CheckBox x:Name="SwAutoReboot" Style="{StaticResource Switch}" Content="Auto reboot" Margin="0,0,16,0"/>
@@ -326,7 +327,7 @@
                                                         </Grid.ColumnDefinitions>
                                                         <CheckBox Style="{StaticResource Check}" IsChecked="{Binding Selected, Mode=TwoWay}"/>
                                                         <Border Grid.Column="1" Style="{StaticResource Badge}" HorizontalAlignment="Left" Visibility="{Binding KBVisibility}">
-                                                            <TextBlock Text="{Binding KB}" Style="{StaticResource T.Mono}" FontSize="11"/>
+                                                            <TextBlock Text="{Binding KB}" Style="{StaticResource T.Mono}" FontSize="12"/>
                                                         </Border>
                                                         <StackPanel Grid.Column="2" Margin="6,0,12,0" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
@@ -342,7 +343,7 @@
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="4" Text="{Binding Size}" Style="{StaticResource T.Mono}" VerticalAlignment="Center"/>
                                                         <Border Grid.Column="5" Style="{StaticResource Badge}" HorizontalAlignment="Left" Background="#1AFFFFFF">
-                                                            <TextBlock Text="{Binding StateText}" Foreground="{Binding StateColor}" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding StateText}" Foreground="{Binding StateColor}" FontSize="12" FontWeight="SemiBold"/>
                                                         </Border>
                                                     </Grid>
                                                 </Border>
@@ -366,8 +367,12 @@
                                         <StackPanel Margin="0,0,0,10"><TextBlock Style="{StaticResource T.Label}" Text="Published"/><TextBlock x:Name="DetPublished"/></StackPanel>
                                         <StackPanel Margin="0,0,0,10"><TextBlock Style="{StaticResource T.Label}" Text="State"/><TextBlock x:Name="DetState"/></StackPanel>
                                     </UniformGrid>
+                                    <StackPanel x:Name="PanelSupersededBy" Margin="0,0,0,10" Visibility="Collapsed">
+                                        <TextBlock Style="{StaticResource T.Label}" Text="Superseded by"/>
+                                        <TextBlock x:Name="DetSupersededBy" TextWrapping="Wrap"/>
+                                    </StackPanel>
                                     <TextBlock Style="{StaticResource T.Label}" Text="Update ID"/>
-                                    <TextBlock x:Name="DetId" Style="{StaticResource T.Mono}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                    <TextBlock x:Name="DetId" Style="{StaticResource T.Mono}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"/>
                                     <TextBlock Style="{StaticResource T.Label}" Text="Description"/>
                                     <TextBlock x:Name="DetDescription" TextWrapping="Wrap" Style="{StaticResource T.Muted}" Foreground="{StaticResource B.Text}" Margin="0,2,0,12"/>
                                     <Button x:Name="BtnMoreInfo" Style="{StaticResource Btn}" Content="Open support article" HorizontalAlignment="Left"/>
@@ -466,10 +471,10 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Name}" Style="{StaticResource T.H2}" FontSize="14"/>
                                                         <Border Style="{StaticResource Badge}" Background="#1F2ECC8A" Margin="10,0,0,0" Visibility="{Binding DefaultVisibility}">
-                                                            <TextBlock Text="Default" Foreground="{StaticResource B.Success}" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="Default" Foreground="{StaticResource B.Success}" FontSize="12" FontWeight="SemiBold"/>
                                                         </Border>
                                                         <Border Style="{StaticResource Badge}" Background="#1F4F8CFF" Margin="6,0,0,0" Visibility="{Binding ManagedVisibility}">
-                                                            <TextBlock Text="Managed" Foreground="{StaticResource B.Accent}" FontSize="11" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="Managed" Foreground="{StaticResource B.Accent}" FontSize="12" FontWeight="SemiBold"/>
                                                         </Border>
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding ServiceID}" Style="{StaticResource T.Mono}" Foreground="{StaticResource B.Muted}" Margin="0,3,0,0"/>
@@ -673,7 +678,7 @@
                                                     <TextBlock Grid.Column="4" Text="{Binding LastUpdated}" Style="{StaticResource T.Mono}" VerticalAlignment="Center"/>
                                                     <TextBlock Grid.Column="5" Text="{Binding Size}" Style="{StaticResource T.Mono}" VerticalAlignment="Center"/>
                                                     <Border Grid.Column="6" Style="{StaticResource Badge}" HorizontalAlignment="Left" Background="{Binding ResultColor}">
-                                                        <TextBlock Text="{Binding Result}" Foreground="#0B1220" FontSize="11" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Result}" Foreground="#0B1220" FontSize="12" FontWeight="SemiBold"/>
                                                     </Border>
                                                 </Grid>
                                             </Border>
@@ -718,7 +723,7 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
                                                             <Border Style="{StaticResource Badge}" Background="#1AFFFFFF" Margin="10,0,0,0">
-                                                                <TextBlock Text="{Binding State}" Foreground="{Binding StateColor}" FontSize="11" FontWeight="SemiBold"/>
+                                                                <TextBlock Text="{Binding State}" Foreground="{Binding StateColor}" FontSize="12" FontWeight="SemiBold"/>
                                                             </Border>
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding Description}" Style="{StaticResource T.Mono}" Foreground="{StaticResource B.Muted}" TextWrapping="Wrap" Margin="0,4,0,0"/>

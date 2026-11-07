@@ -8,7 +8,12 @@
 - Releases can be signed through Azure Artifact Signing. The `sign` job signs in to Azure with GitHub's OIDC token, so no certificate, key, or password is stored in GitHub, and the private key never leaves Microsoft's HSMs. SignTool and the Artifact Signing plug-in are downloaded at pinned versions and checked against pinned SHA-512 digests. PFX signing still works when the Artifact Signing variables are not set. Setup is in `docs/RELEASING.md`.
 - `tools/Sign-Module.ps1` now also fails if the files were not all signed by the same certificate.
 
+### Added
+- Console: updates that a newer update in the same scan supersedes (from `IUpdate.SupersededUpdateIDs`) are marked Superseded and hidden from the Updates list, the pending count, and the download size. A "Show superseded" chip lists them, and the detail panel names the update that replaces each one. Install everything and download everything with no selection now skip superseded updates too.
+
 ### Fixed
+- Console: titles in the Dashboard, Updates, History, Settings, Catalog, and Jobs lists were drawn in the system default black on the dark background, because implicit text styles do not reach into item templates. Text now inherits the theme color from the window.
+- Console: secondary text is lighter (about 8.8:1 contrast instead of 5.9:1), labels and badges are 12 px instead of 11 px, and primary buttons use the deeper blue so their white text reaches about 5:1. Filter chips no longer stretch to the height of the search box, and the Catalog result badge is no longer dark text on dark gray.
 - `build.ps1 -Install` copied the module into a folder relative to the current directory when the Documents folder was redirected to a path that does not exist, because `GetFolderPath('MyDocuments')` returns an empty string in that case. It now stops with an error instead.
 - `PSWindowsUpdateNext.Format.ps1xml` still carried the original module's Authenticode signature block, which no longer matched the edited file, so an unsigned release reported it as `HashMismatch` instead of `NotSigned`. The block is removed.
 

@@ -425,11 +425,13 @@ $items | ForEach-Object {
     try {
         $cats = try { @($u.Categories | ForEach-Object { "$($_.Name)" }) -join ', ' } catch { '' }
         $more = try { "$(@($u.MoreInfoUrls)[0])" } catch { '' }
+        $supersedes = try { [string[]]@($u.SupersededUpdateIDs | ForEach-Object { "$_" }) } catch { [string[]]@() }
         [pscustomobject]@{
             KB = "$($u.KB)"; Title = "$($u.Title)"; Size = "$($u.Size)"; SizeBytes = (Get-Num $u.MaxDownloadSize); Status = "$($u.Status)"
             UpdateID = "$($u.Identity.UpdateID)"; IsHidden = (Get-Bool $u.IsHidden); IsDownloaded = (Get-Bool $u.IsDownloaded); IsInstalled = (Get-Bool $u.IsInstalled)
             RebootRequired = (Get-Bool $u.RebootRequired); Category = $cats; Severity = "$($u.MsrcSeverity)"
             Description = "$($u.Description)"; MoreInfoUrl = $more; Published = $(try { [datetime](Get-Scalar $u.LastDeploymentChangeTime) } catch { [datetime]::MinValue })
+            Supersedes = $supersedes
         }
     } catch {
         Write-Warning "Skipped one update ($($u.Title)): $($_.Exception.Message)"
@@ -442,6 +444,22 @@ param([string]$Action, [string[]]$UpdateID, [string]$Source, [bool]$AutoReboot)
 $p = @{ WarningAction = 'SilentlyContinue'; ErrorAction = 'Stop'; Verbose = $true; AcceptAll = $true; Confirm = $false }
 switch ($Source) { 'MicrosoftUpdate' { $p.MicrosoftUpdate = $true } 'WindowsUpdate' { $p.WindowsUpdate = $true } }
 if ($UpdateID) { $p.UpdateID = $UpdateID }
+elseif ($Action -in 'Install', 'Download') {
+    # Without a selection the cmdlet would take every applicable update, including ones that a newer
+    # update in the same search replaces. Search first and pass only the updates nothing supersedes.
+    $s = @{ WarningAction = 'SilentlyContinue'; ErrorAction = 'Stop' }
+    switch ($Source) { 'MicrosoftUpdate' { $s.MicrosoftUpdate = $true } 'WindowsUpdate' { $s.WindowsUpdate = $true } }
+    $found = @(Get-WindowsUpdate @s | ForEach-Object { if ($_ -is [System.Collections.ICollection]) { foreach ($i in $_) { $i } } else { $_ } })
+    $replaced = @{}
+    foreach ($u in $found) { foreach ($id in @($u.SupersededUpdateIDs)) { $replaced["$id"] = "$($u.Title)" } }
+    foreach ($u in $found) {
+        $id = "$($u.Identity.UpdateID)"
+        if ($replaced.ContainsKey($id)) { Write-Verbose "Skipping $($u.Title): superseded by $($replaced[$id])." }
+    }
+    $keep = @($found | Where-Object { -not $replaced.ContainsKey("$($_.Identity.UpdateID)") })
+    if (-not $keep.Count) { Write-Verbose 'No updates to process.'; return }
+    $p.UpdateID = [string[]]@($keep | ForEach-Object { "$($_.Identity.UpdateID)" })
+}
 switch ($Action) {
     'Install'  { $p.Install = $true; if ($AutoReboot) { $p.AutoReboot = $true } else { $p.IgnoreReboot = $true } }
     'Download' { $p.Download = $true; $p.IgnoreReboot = $true }
@@ -457,6 +475,31 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         switch ($ui.CmbSource.SelectedIndex) { 1 { 'MicrosoftUpdate' } 2 { 'WindowsUpdate' } default { 'Default' } }
     }
 
+    function Show-ScanResult {
+        param($Result)
+        $state.AllUpdates = @($Result | ForEach-Object {
+            $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
+            foreach ($p in 'KB','Title','Size','SizeBytes','Status','UpdateID','IsHidden','IsDownloaded','IsInstalled','RebootRequired','Category','Severity','Description','MoreInfoUrl','Published','Supersedes') {
+                $r.$p = $_.$p
+            }
+            $r })
+        # SupersededUpdateIDs lists the older updates an update replaces, so an update is superseded when
+        # another update in the same scan names it. Updates outside this scan are not considered.
+        $replacedBy = @{}
+        foreach ($r in $state.AllUpdates) { foreach ($id in @($r.Supersedes)) { if ($id) { $replacedBy[$id] = $r.Title } } }
+        foreach ($r in $state.AllUpdates) { if ($replacedBy.ContainsKey($r.UpdateID)) { $r.SupersededBy = $replacedBy[$r.UpdateID] } }
+        Show-UpdateList
+        $pending = @($state.AllUpdates | Where-Object { -not $_.IsInstalled -and -not $_.IsHidden -and -not $_.IsSuperseded })
+        $superseded = @($state.AllUpdates | Where-Object { $_.IsSuperseded -and -not $_.IsInstalled }).Count
+        $ui.MetricPending.Text = $pending.Count
+        $ui.MetricPendingSub.Text = "$([math]::Round(($pending | Measure-Object SizeBytes -Sum).Sum / 1MB)) MB to download"
+        $ui.MetricDownloaded.Text = @($pending | Where-Object IsDownloaded).Count
+        $ui.MetricHidden.Text = @($state.AllUpdates | Where-Object IsHidden).Count
+        $note = if ($superseded) { " ($superseded superseded)" } else { '' }
+        $ui.TxtUpdatesSub.Text = "$($state.AllUpdates.Count) updates from $(Get-Source) at $((Get-Date).ToString('t'))$note"
+        return $pending
+    }
+
     function Invoke-UpdateScan {
         if (-not (Test-Elevated)) { return }
         $scanArgs = @{ Source = (Get-Source); WithHidden = [bool]$ui.ChipHidden.IsChecked; Installed = [bool]$ui.ChipInstalled.IsChecked }
@@ -464,19 +507,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $ui.TxtUpdatesEmpty.Text = 'Scanning…'
         Invoke-ConsoleTask -Name "Scanning ($($scanArgs.Source))" -Script $scanScript -Params $scanArgs -OnDone {
             param($result, $errors)
-            $state.AllUpdates = @($result | ForEach-Object {
-                $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
-                foreach ($p in 'KB','Title','Size','SizeBytes','Status','UpdateID','IsHidden','IsDownloaded','IsInstalled','RebootRequired','Category','Severity','Description','MoreInfoUrl','Published') {
-                    $r.$p = $_.$p
-                }
-                $r })
-            Show-UpdateList
-            $pending = @($state.AllUpdates | Where-Object { -not $_.IsInstalled -and -not $_.IsHidden })
-            $ui.MetricPending.Text = $pending.Count
-            $ui.MetricPendingSub.Text = "$([math]::Round(($pending | Measure-Object SizeBytes -Sum).Sum / 1MB)) MB to download"
-            $ui.MetricDownloaded.Text = @($pending | Where-Object IsDownloaded).Count
-            $ui.MetricHidden.Text = @($state.AllUpdates | Where-Object IsHidden).Count
-            $ui.TxtUpdatesSub.Text = "$($state.AllUpdates.Count) updates from $(Get-Source) at $((Get-Date).ToString('t'))"
+            $pending = @(Show-ScanResult $result)
             $ui.TxtUpdatesEmpty.Text = if ($errors.Count) { 'Scan failed. See the log.' } else { 'No updates match.' }
             if (-not $errors.Count) {
                 $ui.TxtHeroTitle.Text = if ($pending.Count) { "$($pending.Count) updates available" } else { 'No updates available' }
@@ -491,6 +522,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $text = $ui.TxtUpdateFilter.Text
         $rows = $state.AllUpdates
         if ($ui.ChipRebootOnly.IsChecked) { $rows = @($rows | Where-Object RebootRequired) }
+        if (-not $ui.ChipSuperseded.IsChecked) { $rows = @($rows | Where-Object { -not $_.IsSuperseded }) }
         if ($text) { $rows = @($rows | Where-Object { $_.Title -like "*$text*" -or $_.KB -like "*$text*" }) }
         if ($state.SortKey) {
             $key = $state.SortKey
@@ -541,15 +573,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     # Reuse the scan completion handler for rescans after an action.
     $state.RescanDone = {
         param($result)
-        $state.AllUpdates = @($result | ForEach-Object {
-            $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
-            foreach ($p in 'KB','Title','Size','SizeBytes','Status','UpdateID','IsHidden','IsDownloaded','IsInstalled','RebootRequired','Category','Severity','Description','MoreInfoUrl','Published') { $r.$p = $_.$p }
-            $r })
-        Show-UpdateList
-        $pending = @($state.AllUpdates | Where-Object { -not $_.IsInstalled -and -not $_.IsHidden })
-        $ui.MetricPending.Text = $pending.Count
-        $ui.MetricDownloaded.Text = @($pending | Where-Object IsDownloaded).Count
-        $ui.MetricHidden.Text = @($state.AllUpdates | Where-Object IsHidden).Count
+        Show-ScanResult $result | Out-Null
         Show-DashboardPage
     }
 
@@ -560,6 +584,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     $ui.BtnUnhide.Add_Click({ Invoke-UpdateAction -Action 'Unhide' })
     $ui.TxtUpdateFilter.Add_TextChanged({ Show-UpdateList })
     $ui.ChipRebootOnly.Add_Click({ Show-UpdateList })
+    $ui.ChipSuperseded.Add_Click({ Show-UpdateList })
     $ui.ChipHidden.Add_Click({ if ($state.AllUpdates.Count) { Invoke-UpdateScan } })
     $ui.ChipInstalled.Add_Click({ if ($state.AllUpdates.Count) { Invoke-UpdateScan } })
     $ui.ChkSelectAll.Add_Click({
@@ -588,6 +613,8 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $ui.DetReboot.Text = if ($Row.RebootRequired) { 'required' } else { 'not required' }
         $ui.DetPublished.Text = $Row.PublishedText
         $ui.DetState.Text = $Row.StateText
+        $ui.PanelSupersededBy.Visibility = if ($Row.IsSuperseded) { 'Visible' } else { 'Collapsed' }
+        $ui.DetSupersededBy.Text = $Row.SupersededBy
         $ui.DetId.Text = $Row.UpdateID
         $ui.DetDescription.Text = $Row.Description
         $ui.BtnMoreInfo.IsEnabled = [bool]$Row.MoreInfoUrl
