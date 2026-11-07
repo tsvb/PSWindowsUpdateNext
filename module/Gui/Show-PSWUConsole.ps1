@@ -475,7 +475,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         switch ($ui.CmbSource.SelectedIndex) { 1 { 'MicrosoftUpdate' } 2 { 'WindowsUpdate' } default { 'Default' } }
     }
 
-    function Set-UpdateRow {
+    function Show-ScanResult {
         param($Result)
         $state.AllUpdates = @($Result | ForEach-Object {
             $r = New-Object PSWindowsUpdateNext.Gui.UpdateRow
@@ -507,7 +507,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
         $ui.TxtUpdatesEmpty.Text = 'Scanning…'
         Invoke-ConsoleTask -Name "Scanning ($($scanArgs.Source))" -Script $scanScript -Params $scanArgs -OnDone {
             param($result, $errors)
-            $pending = @(Set-UpdateRow $result)
+            $pending = @(Show-ScanResult $result)
             $ui.TxtUpdatesEmpty.Text = if ($errors.Count) { 'Scan failed. See the log.' } else { 'No updates match.' }
             if (-not $errors.Count) {
                 $ui.TxtHeroTitle.Text = if ($pending.Count) { "$($pending.Count) updates available" } else { 'No updates available' }
@@ -573,7 +573,7 @@ $items | ForEach-Object { [pscustomobject]@{ KB = "$($_.KB)"; Title = "$($_.Titl
     # Reuse the scan completion handler for rescans after an action.
     $state.RescanDone = {
         param($result)
-        Set-UpdateRow $result | Out-Null
+        Show-ScanResult $result | Out-Null
         Show-DashboardPage
     }
 
