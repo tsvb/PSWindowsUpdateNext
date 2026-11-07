@@ -9,6 +9,7 @@
 - `tools/Sign-Module.ps1` now also fails if the files were not all signed by the same certificate.
 
 ### Fixed
+- `build.ps1 -Install` copied the module into a folder relative to the current directory when the Documents folder was redirected to a path that does not exist, because `GetFolderPath('MyDocuments')` returns an empty string in that case. It now stops with an error instead.
 - `PSWindowsUpdateNext.Format.ps1xml` still carried the original module's Authenticode signature block, which no longer matched the edited file, so an unsigned release reported it as `HashMismatch` instead of `NotSigned`. The block is removed.
 
 ## 3.3.0 (2026-10-28)
