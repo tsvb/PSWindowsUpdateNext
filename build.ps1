@@ -41,10 +41,16 @@ foreach ($tfm in 'net472', 'net8.0-windows') {
 Write-Host "Module assembled at $OutputPath"
 
 if ($Install) {
+    # GetFolderPath returns an empty string when the Documents folder is redirected to a path that does
+    # not exist, and Join-Path would then install relative to the current directory.
+    $documents = [Environment]::GetFolderPath('MyDocuments')
+    if (-not $documents -or -not (Test-Path -LiteralPath $documents -PathType Container)) {
+        throw "Cannot install: the Documents folder could not be found, so there is no user module path. Copy $OutputPath into a folder on `$env:PSModulePath instead."
+    }
     $userModules = if ($PSEdition -eq 'Core') {
-        Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\Modules'
+        Join-Path $documents 'PowerShell\Modules'
     } else {
-        Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'WindowsPowerShell\Modules'
+        Join-Path $documents 'WindowsPowerShell\Modules'
     }
     $version = (Import-PowerShellDataFile (Join-Path $moduleSrc 'PSWindowsUpdateNext.psd1')).ModuleVersion
     $target = Join-Path $userModules "PSWindowsUpdateNext\$version"
