@@ -31,7 +31,7 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: ./tools/Assert-ReleaseVersion.ps1 -Tag $env:TAG_NAME
 
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: '8.0.x'
 
@@ -186,7 +186,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       # The Artifact Signing plug-in runs on .NET 8.
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: steps.config.outputs.method == 'artifact-signing'
         with:
           dotnet-version: '8.0.x'
@@ -324,7 +324,7 @@ jobs:
             PSWindowsUpdateNext/**
 
       # Third-party action in the job that can write to the repository: pinned to a commit (v2.6.2).
-      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
+      - uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3
         with:
           name: ${{ github.ref_name }}
           body_path: release-notes.md
